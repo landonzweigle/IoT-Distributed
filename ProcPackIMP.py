@@ -71,7 +71,7 @@ def Collect():
 
 		#iterate over every packet in the dataframe df. Analyse it, and append the result to the output DataFrame (outdf).
 		res = df.apply(tApply, axis=1, pcap=pcap)
-
+		print(res)
 
 		exit()
 
@@ -126,31 +126,56 @@ def tApply(d, pcap):
 #		return
 
 	index = d.name
+	print("ID: %s" % (index))
 	packet = pcap[index]
+
 	print(packet)
+
+	print("type: " + packet.eth.type.showname_value.split(" ",1)[0])
+	ipType = packet.eth.type.showname_value.split(" ",1)[0]
+
 	#check if it is ipv4. This is essentially what extractpayload did.
-	if(int(packet.eth.type,16) == 2048):
-		decodeipv4(packet)
-		
+	if(ipType == "IPv4"):
+		print(dir(packet.ip))
+		pktinfos, payload = decodeipv4(packet)
+
+		if(pktinfos and payload):
+			entropy = Entropy(payload)
+			leng = len(payload)
+			
+			return leng
 
 
-	#pktinfos, payload = extractpayload(dpkt.ethernet.Ethernet(data))
 
-	#print(d)
-	print("\nEE\n")
 
-##Some basic processing we did for our paper
-def analysepacket (pktlen, data, timestamp):
-	if not data:
-		return
 
-	pktinfos, payload = extractpayload(dpkt.ethernet.Ethernet(data))
 
-	if pktinfos and payload:
-		global entropy 
-		entropy = Entropy(payload)
-		global leng 
-		leng= len(payload)
+##This part is where packet processing happens
+def decodeipv4(packet):
+	pktinfos = {"src_addr":None, "dst_addr":None, "proto":None, "proto_name":None, "src_port":None, "dst_port":None}
+	pktinfos['src_addr'] = packet.ip.src
+	pktinfos['dst_addr'] = packet.ip.dst
+	pktinfos['proto'] = packet.ip.proto
+	pktinfos["proto_name"] = packet.transport_layer
+	payload = packet.data.data
+
+	if pktinfos["proto_name"] == "TCP": #Check for TCP packets
+		pktinfos['src_port'] = packet.tcp.srcport
+		pktinfos['dst_port'] = packet.tcp.dstport
+
+	elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
+		pktinfos['src_port'] = packet.udp.srcport
+		pktinfos['dst_port'] = packet.udp.dstport
+
+	elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
+		pktinfos['src_port'] = 0
+		pktinfos['dst_port'] = 0
+
+	else:
+		pktinfos,payload=None, None
+
+	return pktinfos, payload
+
 
 def Entropy(data):
    # We determine the frequency of each byte
@@ -174,49 +199,6 @@ def Entropy(data):
 			ent = ent + f * math.log(f, LOG_BASE)
 
 	return -ent
-
-##This part is where packet processing happens
-def decodeipv4(ip):
-	pktinfos = dict()
-	pktinfos['src_addr'] = pcap.ntoa(struct.unpack('i',ip.src)[0])
-	pktinfos['dst_addr'] = pcap.ntoa(struct.unpack('i',ip.dst)[0])
-	pktinfos['proto'] = ip.p
-
-	if dpkt.ip.IP_PROTO_TCP == ip.p: #Check for TCP packets
-		tcp = ip.data
-		pktinfos['proto_name'] = 'TCP'
-		pktinfos['src_port'] = tcp.sport
-		pktinfos['dst_port'] = tcp.dport
-		payload = tcp.data
-	elif dpkt.ip.IP_PROTO_UDP == ip.p: #Check for UDP packets
-		udp = ip.data
-		pktinfos['proto_name'] = 'UDP'
-		pktinfos['src_port'] = udp.sport
-		pktinfos['dst_port'] = udp.dport
-		payload = udp.data
-	elif dpkt.ip.IP_PROTO_ICMP == ip.p: #Check for ICMP packets
-		icmp = ip.data
-		pktinfos['proto_name'] = 'ICMP'
-		pktinfos['src_port'] = 0
-		pktinfos['dst_port'] = 0
-		payload = str(icmp.data)
-	else:
-		return None, None
-
-	return pktinfos, payload
-
-##This part should be of interest to you. This gives the payload.
-def extractpayload(eth):
-	if dpkt.ethernet.ETH_TYPE_IP == eth.type:      # ipv4 packet
-		return decodeipv4(eth.data)
-	elif dpkt.ethernet.ETH_TYPE_IP6 == eth.type:    # ipv6 packet
-		return None, None
-	elif dpkt.ethernet.ETH_TYPE_ARP == eth.type:    # arp packet
-		return None, None
-	elif dpkt.ethernet.ETH_TYPE_REVARP == eth.type:    # rarp packet
-		return None, None
-	else:
-		return None, None
 
 
 
