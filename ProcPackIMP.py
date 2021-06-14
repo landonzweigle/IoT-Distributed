@@ -1,5 +1,5 @@
 
-import sys, getopt, datetime, time, os
+import sys, getopt, datetime, time, os, math
 import dpkt
 import pandas as pds, pyshark as psk
 
@@ -62,51 +62,16 @@ def Collect():
 		#load the parsed header into a DataFrame
 		df = pds.read_csv(storageName, index_col=False)#.dropna(axis=1, how="all") #right now I dont know if I should keep the NA columns.
 
-		#create the out DataFrame (csv)
-		outDF = pds.DataFrame(columns=list(df.columns.values)+["Payload Entropy", "Payload Length"])
 		print(df)
-		print(outDF)
+
 
 		print()
 
 		#iterate over every packet in the dataframe df. Analyse it, and append the result to the output DataFrame (outdf).
-		res = df.apply(tApply, axis=1, pcap=pcap)
-		print(res)
+		df = df.apply(tApply, axis=1, pcap=pcap)
+		print(df)
+		df.to_csv(storageName, index=False)
 
-		exit()
-
-#----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-#----------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-
-		# open csv file and add "payload entropy" and "payload length" to columns
-
-#		data = []
-#		try:
-#			row0 = csvR.next()
-#			row0.append('Payload Entropy')
-#			row0.append('Payload Length')
-#			data.append(row0)
-#		except StopIteration:
-#			print ('No Rows')
-#		except:
-#			print ('Something else went wrong')
-
-		# make pcapObject to parse the pcap file
-#		p = pcap.pcapObject()
-#		p.open_offline(inFile)
-		try:
-			for item in csvR:
-				p.dispatch(1, analysepacket)
-				item.append(entropy)
-				item.append(leng)
-				data.append(item)
-
-		except KeyboardInterrupt:
-			print ('interrupt')
-		csvFile = open(storageName, 'w')
-		csvW = csv.writer(csvFile)
-		csvW.writerows(data)
 
 		print('Finished Calcualting Packet Entropy')
 		print('--------------------------')
@@ -121,31 +86,25 @@ def Collect():
 		print("Closing Program...")
 		sys.exit()
 
-def tApply(d, pcap):
-#	if not pcap and not d:
-#		return
-
-	index = d.name
-	print("ID: %s" % (index))
+def tApply(data, pcap):
+	index = data.name
 	packet = pcap[index]
 
-	print(packet)
+	if hasattr(packet, "data"):
+		ipType = packet.eth.type.showname_value.split(" ",1)[0]
+		#check if it is ipv4. This is essentially what extractpayload did.
+		if(ipType == "IPv4"):
+			print(dir(packet.ip))
+			pktinfos, payload = decodeipv4(packet)
 
-	print("type: " + packet.eth.type.showname_value.split(" ",1)[0])
-	ipType = packet.eth.type.showname_value.split(" ",1)[0]
+			if(pktinfos and payload):
+				entropy = Entropy(payload)
+				leng = len(payload)
+				toAdd = pds.Series(data=[entropy, leng], index=["Payload Entropy", "Payload Length"])
+				return data.append(toAdd)
 
-	#check if it is ipv4. This is essentially what extractpayload did.
-	if(ipType == "IPv4"):
-		print(dir(packet.ip))
-		pktinfos, payload = decodeipv4(packet)
-
-		if(pktinfos and payload):
-			entropy = Entropy(payload)
-			leng = len(payload)
-			
-			return leng
-
-
+	toAdd = pds.Series(data=[None, None], index=["Payload Entropy", "Payload Length"])
+	return data.append(toAdd)
 
 
 
@@ -157,8 +116,8 @@ def decodeipv4(packet):
 	pktinfos['dst_addr'] = packet.ip.dst
 	pktinfos['proto'] = packet.ip.proto
 	pktinfos["proto_name"] = packet.transport_layer
-	payload = packet.data.data
 
+	payload = packet.data.data
 	if pktinfos["proto_name"] == "TCP": #Check for TCP packets
 		pktinfos['src_port'] = packet.tcp.srcport
 		pktinfos['dst_port'] = packet.tcp.dstport
@@ -186,10 +145,7 @@ def Entropy(data):
 
 	freq={}
 	for c in data:
-		if freq.has_key(c):
-			freq[c] += 1
-		else:
-			freq[c] = 1
+		freq[c] = freq.get(c, 0)+1
 
    # a byte can take 256 values from 0 to 255. Here we are looping 256 times
    # to determine if each possible value of a byte is in the dataset
