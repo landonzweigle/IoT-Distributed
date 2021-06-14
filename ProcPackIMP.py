@@ -1,18 +1,14 @@
-
 import sys, getopt, datetime, time, os, math
 import dpkt
 import pandas as pds, pyshark as psk
 
-#Written by Landon Zweigle
+#Updated by Landon Zweigle
 
 # logarithm Base (default = 2)
 LOG_BASE = 2 # math.e
 ##sys.setdefaultencoding('utf8')
-entropy = 0
-leng = 0
 
 capDir = "./Captures/"
-
 
 ##This method has two parts
 ## First part allows for capture of packets on a specified ip address from command line
@@ -62,14 +58,10 @@ def Collect():
 		#load the parsed header into a DataFrame
 		df = pds.read_csv(storageName, index_col=False)#.dropna(axis=1, how="all") #right now I dont know if I should keep the NA columns.
 
-		print(df)
-
-
-		print()
 
 		#iterate over every packet in the dataframe df. Analyse it, and append the result to the output DataFrame (outdf).
-		df = df.apply(tApply, axis=1, pcap=pcap)
-		print(df)
+		df = df.apply(analysepacket, axis=1, pcap=pcap)
+
 		df.to_csv(storageName, index=False)
 
 
@@ -81,12 +73,12 @@ def Collect():
 		print('Finished Sending Data to Storage')
 		print('--------------------------')
 		sys.exit()
-            
+
 	except KeyboardInterrupt:
 		print("Closing Program...")
 		sys.exit()
 
-def tApply(data, pcap):
+def analysepacket(data, pcap):
 	index = data.name
 	packet = pcap[index]
 
@@ -94,7 +86,6 @@ def tApply(data, pcap):
 		ipType = packet.eth.type.showname_value.split(" ",1)[0]
 		#check if it is ipv4. This is essentially what extractpayload did.
 		if(ipType == "IPv4"):
-			print(dir(packet.ip))
 			pktinfos, payload = decodeipv4(packet)
 
 			if(pktinfos and payload):
