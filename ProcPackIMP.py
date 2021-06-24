@@ -21,9 +21,6 @@ def Collect(fileName):
 	outFile =""
 	inter =""
 
-	if(len(sys.argv) != 2):
-		raise Excpetion("One (or more) arguments must be specified. The first arguement referse to the device being processed (for accessing arg0.pcap/csv)")
-
 	try:
 		inFile = capDir + fileName + '.pcap'
 		storageName = capDir + fileName + '.csv'
@@ -33,6 +30,8 @@ def Collect(fileName):
 		print('Storage File is [' + storageName + ']')
 		print('--------------------------')
 		print('Starting Packet Header Parse...')
+
+
 
 		os.system('touch ' + storageName)
 		os.system('tshark -r ' + inFile + ' -T fields -e frame.number -e frame.protocols -e frame.len -e frame.packet_flags -e frame.time -e frame.time_relative -e eth.src -e eth.dst -e ip.src -e ip.dst -e ip.version -e ip.proto -e ip.ttl -e ip.hdr_len -e ip.len -e ip.id -e ip.flags -e ip.frag_offset -e ip.checksum -e tcp.seq -e tcp.ack -e tcp.srcport -e tcp.dstport -e tcp.hdr_len -e tcp.len -e tcp.flags -e tcp.options.timestamp.tsval -e tcp.options.timestamp.tsecr -e tcp.checksum -e tcp.window_size_value -e http.request.version -E header=y -E separator=, -E quote=d -E occurrence=f > ' + storageName)
@@ -58,7 +57,7 @@ def Collect(fileName):
 		##os.system('scp ./' + storageName + ' ./' + inFile + ' jordantp@tokyo.cs.colostate.edu:/s/fir/e/nobackup/nuclear_iot/IOT')
 		print('Finished Sending Data to Storage')
 		print('--------------------------')
-		sys.exit()
+		return
 
 	except KeyboardInterrupt:
 		print("Closing Program...")
@@ -96,9 +95,9 @@ def decodeipv4(packet):
 	pktinfos["proto_name"] = packet.transport_layer
 
 	if pktinfos["proto_name"] == "TCP": #Check for TCP packets
+		payload = packet.data.data
 		pktinfos['src_port'] = packet.tcp.srcport
 		pktinfos['dst_port'] = packet.tcp.dstport
-		payload = packet.data.data
 
 	elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
 		pktinfos['src_port'] = packet.udp.srcport
@@ -143,7 +142,8 @@ def main(inArg):
 	Collect(inArg)
 
 if __name__ == "__main__":
-	print("Running Main")
+	if(len(sys.argv) != 2):
+		raise Exception("One (or more) arguments must be specified. The first arguement referse to the device being processed (for accessing arg0.pcap/csv)")
 
 	try: ##gather pcap file name and storage file name
 		opts, args = getopt.getopt(sys.argv[1:],"hi:c:",["ipaddress=","pcount=="])
@@ -158,6 +158,7 @@ if __name__ == "__main__":
 			print ("input error!")
 			sys.exit(1)
 
+	print("Running Main")
 	main(sys.argv[1])
 
 
