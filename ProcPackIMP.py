@@ -14,7 +14,7 @@ capDir = "./Captures/"
 ## First part allows for capture of packets on a specified ip address from command line
 ## Second part processes the captured packets-- this is what you are intersted.
 ## For  now, you can comment out the first few pieces of the code and use the remaining parts.
-def Collect():
+def Collect(fileName):
 	ip = ""
 	count = 100
 	inFile =""
@@ -25,22 +25,8 @@ def Collect():
 		raise Excpetion("One (or more) arguments must be specified. The first arguement referse to the device being processed (for accessing arg0.pcap/csv)")
 
 	try:
-		try: ##gather pcap file name and storage file name
-			opts, args = getopt.getopt(sys.argv[1:],"hi:c:",["ipaddress=","pcount=="])
-		except getopt.GetoptError:
-			sys.exit(1)
-		for opt, arg in opts:
-			if opt in ("-i","--ipaddress"):
-				ip = arg
-			elif opt in ("-c","--pcount"):
-				count = arg
-			else:
-				print ("input error!")
-				sys.exit(1)
-
-
-		inFile = capDir + sys.argv[1] + '.pcap'
-		storageName = capDir + sys.argv[1] + '.csv'
+		inFile = capDir + fileName + '.pcap'
+		storageName = capDir + fileName + '.csv'
 		pcap = psk.FileCapture(inFile)
 
 		print('Capture file is [' + inFile + ']')
@@ -153,9 +139,32 @@ def Entropy(data):
 
 
 ##This you can change or just change the Collect method to process a pcap file of your choice. Use Linux based python interpreter as it will have the pcap file.
-def main():
-	Collect()
+def main(inArg):
+	Collect(inArg)
 
 if __name__ == "__main__":
 	print("Running Main")
-	main()
+
+	try: ##gather pcap file name and storage file name
+		opts, args = getopt.getopt(sys.argv[1:],"hi:c:",["ipaddress=","pcount=="])
+	except getopt.GetoptError:
+		sys.exit(1)
+	for opt, arg in opts:
+		if opt in ("-i","--ipaddress"):
+			ip = arg
+		elif opt in ("-c","--pcount"):
+			count = arg
+		else:
+			print ("input error!")
+			sys.exit(1)
+
+	main(sys.argv[1])
+
+
+
+
+
+
+
+
+
