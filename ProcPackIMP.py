@@ -14,39 +14,24 @@ capDir = "./Captures/"
 ## First part allows for capture of packets on a specified ip address from command line
 ## Second part processes the captured packets-- this is what you are intersted.
 ## For  now, you can comment out the first few pieces of the code and use the remaining parts.
-def Collect():
+def Collect(fileName):
 	ip = ""
 	count = 100
 	inFile =""
 	outFile =""
 	inter =""
 
-	if(len(sys.argv) != 2):
-		raise Excpetion("One (or more) arguments must be specified. The first arguement referse to the device being processed (for accessing arg0.pcap/csv)")
-
 	try:
-		try: ##gather pcap file name and storage file name
-			opts, args = getopt.getopt(sys.argv[1:],"hi:c:",["ipaddress=","pcount=="])
-		except getopt.GetoptError:
-			sys.exit(1)
-		for opt, arg in opts:
-			if opt in ("-i","--ipaddress"):
-				ip = arg
-			elif opt in ("-c","--pcount"):
-				count = arg
-			else:
-				print ("input error!")
-				sys.exit(1)
-
-
-		inFile = capDir + sys.argv[1] + '.pcap'
-		storageName = capDir + sys.argv[1] + '.csv'
+		inFile = capDir + fileName + '.pcap'
+		storageName = capDir + fileName + '.csv'
 		pcap = psk.FileCapture(inFile)
 
 		print('Capture file is [' + inFile + ']')
 		print('Storage File is [' + storageName + ']')
 		print('--------------------------')
 		print('Starting Packet Header Parse...')
+
+
 
 		os.system('touch ' + storageName)
 		os.system('tshark -r ' + inFile + ' -T fields -e frame.number -e frame.protocols -e frame.len -e frame.packet_flags -e frame.time -e frame.time_relative -e eth.src -e eth.dst -e ip.src -e ip.dst -e ip.version -e ip.proto -e ip.ttl -e ip.hdr_len -e ip.len -e ip.id -e ip.flags -e ip.frag_offset -e ip.checksum -e tcp.seq -e tcp.ack -e tcp.srcport -e tcp.dstport -e tcp.hdr_len -e tcp.len -e tcp.flags -e tcp.options.timestamp.tsval -e tcp.options.timestamp.tsecr -e tcp.checksum -e tcp.window_size_value -e http.request.version -E header=y -E separator=, -E quote=d -E occurrence=f > ' + storageName)
@@ -72,7 +57,7 @@ def Collect():
 		##os.system('scp ./' + storageName + ' ./' + inFile + ' jordantp@tokyo.cs.colostate.edu:/s/fir/e/nobackup/nuclear_iot/IOT')
 		print('Finished Sending Data to Storage')
 		print('--------------------------')
-		sys.exit()
+		return
 
 	except KeyboardInterrupt:
 		print("Closing Program...")
@@ -83,16 +68,17 @@ def analysepacket(data, pcap):
 	packet = pcap[index]
 
 	if hasattr(packet, "data"):
-		ipType = packet.eth.type.showname_value.split(" ",1)[0]
-		#check if it is ipv4. This is essentially what extractpayload did.
-		if(ipType == "IPv4"):
-			pktinfos, payload = decodeipv4(packet)
+		if hasattr(packet.data, "data"):
+			ipType = packet.eth.type.showname_value.split(" ",1)[0]
+			#check if it is ipv4. This is essentially what extractpayload did.
+			if(ipType == "IPv4"):
+				pktinfos, payload = decodeipv4(packet)
 
-			if(pktinfos and payload):
-				entropy = Entropy(payload)
-				leng = len(payload)
-				toAdd = pds.Series(data=[entropy, leng], index=["Payload Entropy", "Payload Length"])
-				return data.append(toAdd)
+				if(pktinfos and payload):
+					entropy = Entropy(payload)
+					leng = len(payload)
+					toAdd = pds.Series(data=[entropy, leng], index=["Payload Entropy", "Payload Length"])
+					return data.append(toAdd)
 
 	toAdd = pds.Series(data=[None, None], index=["Payload Entropy", "Payload Length"])
 	return data.append(toAdd)
@@ -108,18 +94,20 @@ def decodeipv4(packet):
 	pktinfos['proto'] = packet.ip.proto
 	pktinfos["proto_name"] = packet.transport_layer
 
-	payload = packet.data.data
 	if pktinfos["proto_name"] == "TCP": #Check for TCP packets
+		payload = packet.data.data
 		pktinfos['src_port'] = packet.tcp.srcport
 		pktinfos['dst_port'] = packet.tcp.dstport
 
 	elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
 		pktinfos['src_port'] = packet.udp.srcport
 		pktinfos['dst_port'] = packet.udp.dstport
+		payload = packet.data.data
 
 	elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
 		pktinfos['src_port'] = 0
 		pktinfos['dst_port'] = 0
+		payload = packet.data.data
 
 	else:
 		pktinfos,payload=None, None
@@ -150,9 +138,34 @@ def Entropy(data):
 
 
 ##This you can change or just change the Collect method to process a pcap file of your choice. Use Linux based python interpreter as it will have the pcap file.
-def main():
-	Collect()
+def main(inArg):
+	Collect(inArg)
 
 if __name__ == "__main__":
+	if(len(sys.argv) != 2):
+		raise Exception("One (or more) arguments must be specified. The first arguement referse to the device being processed (for accessing arg0.pcap/csv)")
+
+	try: ##gather pcap file name and storage file name
+		opts, args = getopt.getopt(sys.argv[1:],"hi:c:",["ipaddress=","pcount=="])
+	except getopt.GetoptError:
+		sys.exit(1)
+	for opt, arg in opts:
+		if opt in ("-i","--ipaddress"):
+			ip = arg
+		elif opt in ("-c","--pcount"):
+			count = arg
+		else:
+			print ("input error!")
+			sys.exit(1)
+
 	print("Running Main")
-	main()
+	main(sys.argv[1])
+
+
+
+
+
+
+
+
+
