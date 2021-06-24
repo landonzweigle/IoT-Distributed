@@ -83,16 +83,17 @@ def analysepacket(data, pcap):
 	packet = pcap[index]
 
 	if hasattr(packet, "data"):
-		ipType = packet.eth.type.showname_value.split(" ",1)[0]
-		#check if it is ipv4. This is essentially what extractpayload did.
-		if(ipType == "IPv4"):
-			pktinfos, payload = decodeipv4(packet)
+		if hasattr(packet.data, "data"):
+			ipType = packet.eth.type.showname_value.split(" ",1)[0]
+			#check if it is ipv4. This is essentially what extractpayload did.
+			if(ipType == "IPv4"):
+				pktinfos, payload = decodeipv4(packet)
 
-			if(pktinfos and payload):
-				entropy = Entropy(payload)
-				leng = len(payload)
-				toAdd = pds.Series(data=[entropy, leng], index=["Payload Entropy", "Payload Length"])
-				return data.append(toAdd)
+				if(pktinfos and payload):
+					entropy = Entropy(payload)
+					leng = len(payload)
+					toAdd = pds.Series(data=[entropy, leng], index=["Payload Entropy", "Payload Length"])
+					return data.append(toAdd)
 
 	toAdd = pds.Series(data=[None, None], index=["Payload Entropy", "Payload Length"])
 	return data.append(toAdd)
@@ -108,18 +109,20 @@ def decodeipv4(packet):
 	pktinfos['proto'] = packet.ip.proto
 	pktinfos["proto_name"] = packet.transport_layer
 
-	payload = packet.data.data
 	if pktinfos["proto_name"] == "TCP": #Check for TCP packets
 		pktinfos['src_port'] = packet.tcp.srcport
 		pktinfos['dst_port'] = packet.tcp.dstport
+		payload = packet.data.data
 
 	elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
 		pktinfos['src_port'] = packet.udp.srcport
 		pktinfos['dst_port'] = packet.udp.dstport
+		payload = packet.data.data
 
 	elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
 		pktinfos['src_port'] = 0
 		pktinfos['dst_port'] = 0
+		payload = packet.data.data
 
 	else:
 		pktinfos,payload=None, None
