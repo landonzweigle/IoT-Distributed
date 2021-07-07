@@ -1,5 +1,4 @@
-import sys, getopt, datetime, time, os, math
-import dpkt
+import sys, getopt, datetime, time, os, math, socket
 import pandas as pds, pyshark as psk
 
 #Updated by Landon Zweigle
@@ -77,7 +76,8 @@ def analysepacket(data, pcap):
 				if(pktinfos and payload):
 					entropy = Entropy(payload)
 					leng = len(payload)
-					toAdd = pds.Series(data=[entropy, leng], index=["Payload Entropy", "Payload Length"])
+					ALP = socket.getservbyport(pktinfos["dst_port"])
+					toAdd = pds.Series(data=[ALP, entropy, leng], index=["ALP", "Payload Entropy", "Payload Length"])
 					return data.append(toAdd)
 
 	toAdd = pds.Series(data=[None, None], index=["Payload Entropy", "Payload Length"])
@@ -97,11 +97,14 @@ def decodeipv4(packet):
 	if pktinfos["proto_name"] == "TCP": #Check for TCP packets
 		payload = packet.data.data
 		pktinfos['src_port'] = packet.tcp.srcport
-		pktinfos['dst_port'] = packet.tcp.dstport
+		# print(dir(packet.tcp.dstport))
+		pktinfos['dst_port'] = int(packet.tcp.dstport.show)
 
 	elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
 		pktinfos['src_port'] = packet.udp.srcport
-		pktinfos['dst_port'] = packet.udp.dstport
+		# print(dir(packet.udp.dstport))
+		# print("-----------------------------------PORT --> %s" % int(packet.udp.dstport.show))
+		pktinfos['dst_port'] = int(packet.udp.dstport.show)
 		payload = packet.data.data
 
 	elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
