@@ -76,7 +76,12 @@ def analysepacket(data, pcap):
 				if(pktinfos and payload):
 					entropy = Entropy(payload)
 					leng = len(payload)
-					ALP = socket.getservbyport(pktinfos["dst_port"])
+					ALP = "NA"
+					try:
+						ALP = socket.getservbyport(pktinfos["dst_port"])
+					except OSError as e:
+						pass
+					
 					toAdd = pds.Series(data=[ALP, entropy, leng], index=["ALP", "Payload Entropy", "Payload Length"])
 					return data.append(toAdd)
 
