@@ -22,8 +22,6 @@ class MachineLearningModel:
         #Train the model:
         self.train_model()
 
-        #score the model (gather results)
-        self.score()
 
     #Return a dict of each metric.
     def score(self):
@@ -101,8 +99,10 @@ if __name__=="__main__":
         if(len(sys.argv)!=2):
             raise ValueError("MLPipe expects one argument specifying the path of the dataset CSV.")
         else:
-            toOpen=""    
+            toOpen=sys.argv[1]
+            print("Opening file %s" % toOpen)
             df = pds.read_csv(toOpen,index_col=0)
 
     MLP = MLP(df)
+    results = MLP.score()
     print(MLP.results)
