@@ -1,4 +1,4 @@
-import os
+import os, sys
 import pandas as pds, numpy as np
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split
@@ -94,6 +94,8 @@ def generate_TestData(nClasses=15, nRows=10000, nColumns=500):
 
 GEN_DATA=True
 if __name__=="__main__":
+    if(len(sys.argv)!=2):
+        raise ValueError("MLPipe expects one argument specifying the path of the dataset CSV.")
     df = pds.DataFrame
     if(GEN_DATA):
         df = generate_TestData(nRows=10000, nColumns=100)
