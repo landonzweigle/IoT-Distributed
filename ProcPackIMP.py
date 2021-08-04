@@ -33,6 +33,7 @@ def Collect(fileName):
 
 
 		os.system('touch ' + storageName)
+		#We can probably filter out data here (so its only out going, or so its only "important" responses)
 		os.system('tshark -r ' + inFile + ' -T fields -e frame.number -e frame.protocols -e frame.len -e frame.packet_flags -e frame.time -e frame.time_relative -e eth.src -e eth.dst -e ip.src -e ip.dst -e ip.version -e ip.proto -e ip.ttl -e ip.hdr_len -e ip.len -e ip.id -e ip.flags -e ip.frag_offset -e ip.checksum -e tcp.seq -e tcp.ack -e tcp.srcport -e tcp.dstport -e tcp.hdr_len -e tcp.len -e tcp.flags -e tcp.options.timestamp.tsval -e tcp.options.timestamp.tsecr -e tcp.checksum -e tcp.window_size_value -e http.request.version -E header=y -E separator=, -E quote=d -E occurrence=f > ' + storageName)
 
 		print('Header Parse Finished...')
@@ -49,12 +50,7 @@ def Collect(fileName):
 		df.to_csv(storageName, index=False)
 
 
-		print('Finished Calcualting Packet Entropy')
-		print('--------------------------')
-		print('Sending Data to Storage')
-		print('--------------------------')
-		##os.system('scp ./' + storageName + ' ./' + inFile + ' jordantp@tokyo.cs.colostate.edu:/s/fir/e/nobackup/nuclear_iot/IOT')
-		print('Finished Sending Data to Storage')
+		print('Finished Extracting Packet Features')
 		print('--------------------------')
 		return
 
