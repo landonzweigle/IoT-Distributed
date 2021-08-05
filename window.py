@@ -1,11 +1,15 @@
-import pyshark, sys, os, getopt, pandas
+import pyshark, sys, os, getopt
+import pandas as pds
+from math import ceil
+from numpy import float128
 
 storeDir = "./windowParsed/"
 windowSize = 5
 numWindows = 5
+FILTER_PACKETS = False
 
 def makeFiles(filename):
-	outFileName = storeDir + filename + ".txt"
+	outFileName = storeDir + filename + ".csv"
 	inFileName = "./Captures/" + filename + ".pcap"
 	if not os.path.exists(storeDir):
 		os.mkdir(storeDir)
@@ -17,25 +21,19 @@ def makeFiles(filename):
 		os.remove(outFileName)
 	outFile = open(outFileName, "w")
 	print('reading from: ' + inFileName)
-	print(pcap)
+	# print(pcap)
 	print('storing in: ' + outFileName)
+	print("-------------------------------------")
+	print("PCAP DIR:")
+	for a in dir(pcap):
+		print(a)
+	print("-------------------------------------")
+	print("PACKET DIR:")
+	for a in dir(pcap[0]):
+		print(a)
+	print("-------------------------------------")
 	return outFile, pcap
 
-def makeFilesDf(filename):
-	outFileName = storeDir + filename + ".csv"
-	inFileName = "./Captures/" + filename + ".pcap"
-	if not os.path.exists(storeDir):
-		os.mkdir(storeDir)
-	if os.path.exists(inFileName):
-		pcap = pyshark.FileCapture(inFileName)
-	else:
-		raise Exception(inFileName + ' not found')
-	with open(outFileName, 'w',newline='') as csvFile:
-		csvWriter = csv.writer(csvFile, delimiter=',')
-	print('reading from: ' + inFileName)
-	print(pcap)
-	print('storing in: ' + outFileName)
-	return csvWriter, pcap
 
 #---------------------------------------------------------------------------------
 def packetId(packet):
@@ -57,13 +55,6 @@ def packetId(packet):
 		print('error extracting features')
 	return feats
 
-def features(packet):
-	feats = []
-	try:
-		
-	except AttributeError:
-		print('error extracting features')
-	return feats
 
 def makeDf(window):
 	df = []
@@ -105,17 +96,114 @@ class WinHolder:
 #---------------------------------------------------------------------------------
 
 
-def buildArrayLoop(captures):
+def build_windows(captures):
 	full = pds.DataFrame()
-	for i in range(numWindows):
-		window = captures[i:][windowSize:]
-		toAppend = extract_features(window)
-		full.append(toAppend, ignore_index=True)
+	frameIDArr = []
+
+	overlapMustBeFull=True
+	useOverlap=True
+
+	baseTime = float128(captures[0].sniff_timestamp)
+	print("Building windows from %i packets"%len(captures))
+
+	#decide the max number i should be (and step size) depending on if the windows overlap or not.
+	filteredCaps = filter_packets(captures)
+	nonOverlapCount = len(filteredCaps)			#ceil(len(filteredCaps)/windowSize)
+	overlapCount = len(filteredCaps) if(not overlapMustBeFull) else (len(filteredCaps)-windowSize+1)
+	maxCount, stepSize = (overlapCount,1) if(useOverlap) else (nonOverlapCount, windowSize)
+
+	print("max count: %i, step size: %i" %(maxCount, stepSize))
+
+	for i in range(0, maxCount, stepSize): #we can change step to windowsize to do a non-inclusive window building (e.g. 1-5, 5-10, )
+		#window full is every packet after this windows starting packet so "bad"/unrelevant packets can be sorted out.
+		window = filteredCaps[i:i+windowSize]
+		extracted, frameIDs = extract_features(window, baseTime)
+		frameIDArr.append(frameIDs)
+		full.append(extracted, ignore_index=True)
+	print(frameIDArr)
 	return full
 
 
-def extract_features(window):
+#returns a DataFrame of the features extracted.
+#This is what we extract:
+#Packet Header Features{
+#	ARP* 			[0,1]
+#	IP				[0,1]
+#	ICMP			[0,1]
+#	ICMPV6			[0,1]
+#	EAPoL			[0,1]
+#	TCP				[0,1]
+#	UDP				[0,1]
+#	HTTP			[0,1]
+#	HTTPS			[0,1]
+#	DHCP			[0,1]
+#	BOOTP			[0,1]
+#	SSDP			[0,1]
+#	DNS				[0,1]
+#	MDNS			[0,1]
+#	NTP				[0,1]
+#	Padding			[0,1]
+#	Router Alert	[0,1]
+#}
+#Payload Based Features{
+#	Entropy
+#	TCP Window Size
+#	Payload Length
+#}
+def extract_features(window, baseTime):
+	def getTimes():
+		timeOffset = round(float128(packet.sniff_timestamp) - baseTime,9)
+		windowTimeOffset = round(float128(packet.sniff_timestamp) - firstTime,9)
+		return timeOffset, windowTimeOffset
 
+	def getFrameNumber():
+		return packet.number
+
+	def getFrameLength():
+		return packet.length
+
+	firstTime = float128(window[0].sniff_timestamp)
+
+	windowDict = {}
+	frameIDs = []
+
+	for frameID, packet, in enumerate(window):
+		dictPrefix = "frame[%s]"%(frameID+1)
+		frameDict = {}
+
+		frameID = getFrameNumber()
+		frameIDs.append(frameID)
+		frameDict["%s-Frame Number"%dictPrefix] = frameID
+
+		frameDict["%s-Frame Length"%dictPrefix] = getFrameLength()
+
+		timeOffset, windowTimeOffset = getTimes()
+		frameDict["%s-Time"%dictPrefix] = timeOffset
+		frameDict["%s-Time Relative"%dictPrefix] = windowTimeOffset
+
+		# print(packet)
+		print(frameDict)
+		windowDict.update(frameDict)
+		print("------------------")
+	print(windowDict, sep='\n')
+	for dic in windowDict.items():
+		print(dic)
+	print("******************************************************")
+	return windowDict, frameIDs
+
+#Filters packets and returns an array with only n=windowSize packets
+def filter_packets(winAll):
+	if(FILTER_PACKETS):
+		#this doesnt make sense at all but whatever :)
+		filtered=winAll
+	else:
+		filtered = winAll
+	return filtered
+
+#determines if the packet is out of the device.
+#[TBI], we don't know the devices IP at the time of capture so we could only do a best guess.
+def outgoing_packet(packet):
+	pass
 
 def main(argv):
 	try:
@@ -149,18 +237,12 @@ def main(argv):
 	
 if __name__=="__main__":
 	storage, captures = main(sys.argv[1:])
-#	windowArray = buildArray(captures,[],0)
-	try:
-		windowArrayB = buildArrayLoop(captures)
-	except Exception as e:
-		print(e)
-#	for i in range (len(windowArray)):
-#		if not windowArray[i].equals(windowArrayB[i]):
-#			print('arrays are different')
-	for window in windowArrayB:
-		window.writeFile(storage)
-	storage.close()
+
+	windowArray = build_windows(captures)
+
+
+
 #-------------------------for testing/debugging------------------------------------
-	for window in windowArrayB:
-		window.testing()
+	# for window in windowArrayB:
+	# 	window.testing()
 #	print('checkpointC')
