@@ -115,6 +115,8 @@ def build_windows(features, frameNums):
 	for i in range(0, maxCount, stepSize): #we can change step to windowsize to do a non-inclusive window building (e.g. 1-5, 5-10, )
 		#window full is every packet after this windows starting packet so "bad"/unrelevant packets can be sorted out.
 		window = features[i:i+windowSize]
+		dictPrefix = "frame[%s]"%i
+		window = {"%s-%s"%(dictPrefix,key):value for key, value in window}
 		winFrameNums = frameNums[i:i+windowSize]
 
 		winDF = pds.DataFrame(window)
@@ -153,8 +155,7 @@ def build_windows(features, frameNums):
 #}
 def extract_features(captures):
 	def getTimes():
-		timeOffset = round(float128(packet.sniff_timestamp) - firstTime,9)
-		return timeOffset
+		return round(float128(packet.sniff_timestamp) - firstTime,9)
 
 	def getFrameNumber():
 		return packet.number
@@ -171,17 +172,15 @@ def extract_features(captures):
 	frameNums = []
 
 	for frameID, packet, in enumerate(captures):
-		# dictPrefix = "Frame[%s]"%(frameID)
 		frameDict = {}
 
 		frameNum = getFrameNumber()
 		frameNums.append(frameNum)
+
+
 		frameDict["Frame Number"] = frameNum
-
 		frameDict["Frame Length"] = getFrameLength()
-
-		timeOffset = getTimes()
-		frameDict["Time"] = timeOffset
+		frameDict["Time"] = getTimes()
 
 		# print(packet)
 		print(frameDict)
