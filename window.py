@@ -96,31 +96,32 @@ class WinHolder:
 #---------------------------------------------------------------------------------
 
 
-def build_windows(captures):
+def build_windows(features, frameNums):
 	full = pds.DataFrame()
 	frameIDArr = []
 
 	overlapMustBeFull=True
 	useOverlap=True
 
-	baseTime = float128(captures[0].sniff_timestamp)
-	print("Building windows from %i packets"%len(captures))
+	print("Building windows from %i packets"%len(features))
 
 	#decide the max number i should be (and step size) depending on if the windows overlap or not.
-	filteredCaps = filter_packets(captures)
-	nonOverlapCount = len(filteredCaps)			#ceil(len(filteredCaps)/windowSize)
-	overlapCount = len(filteredCaps) if(not overlapMustBeFull) else (len(filteredCaps)-windowSize+1)
+	nonOverlapCount = len(features)
+	overlapCount = len(features) if(not overlapMustBeFull) else (len(features)-windowSize+1)
 	maxCount, stepSize = (overlapCount,1) if(useOverlap) else (nonOverlapCount, windowSize)
 
 	print("max count: %i, step size: %i" %(maxCount, stepSize))
 
 	for i in range(0, maxCount, stepSize): #we can change step to windowsize to do a non-inclusive window building (e.g. 1-5, 5-10, )
 		#window full is every packet after this windows starting packet so "bad"/unrelevant packets can be sorted out.
-		window = filteredCaps[i:i+windowSize]
-		extracted, frameIDs = extract_features(window, baseTime)
-		frameIDArr.append(frameIDs)
-		full.append(extracted, ignore_index=True)
+		window = features[i:i+windowSize]
+		winFrameNums = frameNums[i:i+windowSize]
+
+		winDF = pds.DataFrame(window)
+		frameIDArr.append(winFrameNums)
+		full = full.append(window, ignore_index=True)
 	print(frameIDArr)
+	print(full)
 	return full
 
 
@@ -161,23 +162,26 @@ def extract_features(captures):
 	def getFrameLength():
 		return packet.length
 
+	#filter outgoing only/incoming etc.
+	captures = filter_packets(captures)
+
 	firstTime = float128(captures[0].sniff_timestamp)
 
 	packets = []
 	frameNums = []
 
 	for frameID, packet, in enumerate(captures):
-		dictPrefix = "Frame[%s]"%(frameID)
+		# dictPrefix = "Frame[%s]"%(frameID)
 		frameDict = {}
 
 		frameNum = getFrameNumber()
 		frameNums.append(frameNum)
-		frameDict["%s-Frame Number"%dictPrefix] = frameNum
+		frameDict["Frame Number"] = frameNum
 
-		frameDict["%s-Frame Length"%dictPrefix] = getFrameLength()
+		frameDict["Frame Length"] = getFrameLength()
 
 		timeOffset = getTimes()
-		frameDict["%s-Time"%dictPrefix] = timeOffset
+		frameDict["Time"] = timeOffset
 
 		# print(packet)
 		print(frameDict)
@@ -236,7 +240,7 @@ if __name__=="__main__":
 
 	features, frameNums = extract_features(captures)
 	print(features)
-	# windowArray = build_windows(captures)
+	windowArray = build_windows(features, frameNums)
 
 
 
