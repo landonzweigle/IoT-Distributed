@@ -150,11 +150,10 @@ def build_windows(captures):
 #	TCP Window Size
 #	Payload Length
 #}
-def extract_features(window, baseTime):
+def extract_features(captures):
 	def getTimes():
-		timeOffset = round(float128(packet.sniff_timestamp) - baseTime,9)
-		windowTimeOffset = round(float128(packet.sniff_timestamp) - firstTime,9)
-		return timeOffset, windowTimeOffset
+		timeOffset = round(float128(packet.sniff_timestamp) - firstTime,9)
+		return timeOffset
 
 	def getFrameNumber():
 		return packet.number
@@ -162,34 +161,31 @@ def extract_features(window, baseTime):
 	def getFrameLength():
 		return packet.length
 
-	firstTime = float128(window[0].sniff_timestamp)
+	firstTime = float128(captures[0].sniff_timestamp)
 
-	windowDict = {}
-	frameIDs = []
+	packets = []
+	frameNums = []
 
-	for frameID, packet, in enumerate(window):
-		dictPrefix = "frame[%s]"%(frameID+1)
+	for frameID, packet, in enumerate(captures):
+		dictPrefix = "Frame[%s]"%(frameID)
 		frameDict = {}
 
-		frameID = getFrameNumber()
-		frameIDs.append(frameID)
-		frameDict["%s-Frame Number"%dictPrefix] = frameID
+		frameNum = getFrameNumber()
+		frameNums.append(frameNum)
+		frameDict["%s-Frame Number"%dictPrefix] = frameNum
 
 		frameDict["%s-Frame Length"%dictPrefix] = getFrameLength()
 
-		timeOffset, windowTimeOffset = getTimes()
+		timeOffset = getTimes()
 		frameDict["%s-Time"%dictPrefix] = timeOffset
-		frameDict["%s-Time Relative"%dictPrefix] = windowTimeOffset
 
 		# print(packet)
 		print(frameDict)
-		windowDict.update(frameDict)
+		packets.append(frameDict)
 		print("------------------")
-	print(windowDict, sep='\n')
-	for dic in windowDict.items():
-		print(dic)
+
 	print("******************************************************")
-	return windowDict, frameIDs
+	return packets, frameNums
 
 #Filters packets and returns an array with only n=windowSize packets
 def filter_packets(winAll):
@@ -238,7 +234,9 @@ def main(argv):
 if __name__=="__main__":
 	storage, captures = main(sys.argv[1:])
 
-	windowArray = build_windows(captures)
+	features, frameNums = extract_features(captures)
+	print(features)
+	# windowArray = build_windows(captures)
 
 
 
