@@ -100,7 +100,7 @@ def build_windows(features, frameNums):
 	full = pds.DataFrame()
 	frameIDArr = []
 
-	overlapMustBeFull=True
+	overlapMustBeFull=False
 	useOverlap=True
 
 	print("Building windows from %i packets"%len(features))
@@ -114,14 +114,19 @@ def build_windows(features, frameNums):
 
 	for i in range(0, maxCount, stepSize): #we can change step to windowsize to do a non-inclusive window building (e.g. 1-5, 5-10, )
 		#window full is every packet after this windows starting packet so "bad"/unrelevant packets can be sorted out.
-		window = features[i:i+windowSize]
-		dictPrefix = "frame[%s]"%i
-		window = {"%s-%s"%(dictPrefix,key):value for key, value in window}
+		frames = features[i:i+windowSize]
 		winFrameNums = frameNums[i:i+windowSize]
 
-		winDF = pds.DataFrame(window)
+		frames = [{"frame[%s]-%s"%(n,key):value for key, value in frame.items()} for n, frame in enumerate(frames)]
+		window = {}
+		[window.update(frameDF) for frameDF in frames]
+
+		print(window)
+		print("=================================================")
+		winDF = pds.DataFrame([window])
 		frameIDArr.append(winFrameNums)
-		full = full.append(window, ignore_index=True)
+		full = full.append(winDF, ignore_index=True)
+	full.to_csv("./Test.csv")
 	print(frameIDArr)
 	print(full)
 	return full
