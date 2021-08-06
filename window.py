@@ -1,11 +1,12 @@
 import pyshark, sys, os, getopt
-import pandas as pds
-from math import ceil
+import pandas as pds, numpy as np
+import math
 from numpy import float128
 
 storeDir = "./windowParsed/"
 windowSize = 5
 numWindows = 5
+LOG_BASE = 2 # math.e
 FILTER_PACKETS = False
 
 def makeFiles(filename):
@@ -39,7 +40,7 @@ def build_windows(features, frameNums):
 	full = pds.DataFrame()
 	frameIDArr = []
 
-	overlapMustBeFull=False
+	overlapMustBeFull=True
 	useOverlap=True
 
 	print("Building windows from %i packets"%len(features))
@@ -107,7 +108,7 @@ def extract_features(captures):
 	def getFrameLength():
 		return packet.length
 
-	def Entropy(packet):
+	def Entropy(data):
 		# We determine the frequency of each byte
 		# in the dataset and if this frequency is not null we use it for the
 		# entropy calculation
@@ -127,35 +128,39 @@ def extract_features(captures):
 
 		return -ent
 
-		def decodeipv4(packet):
-			pktinfos = {"src_addr":None, "dst_addr":None, "proto":None, "proto_name":None, "src_port":None, "dst_port":None}
-			pktinfos['src_addr'] = packet.ip.src
-			pktinfos['dst_addr'] = packet.ip.dst
-			pktinfos['proto'] = packet.ip.proto
-			pktinfos["proto_name"] = packet.transport_layer
+	def decodeipv4():
+		pktinfos = {"src_addr":None, "dst_addr":None, "proto":None, "proto_name":None, "src_port":None, "dst_port":None}
+		pktinfos['src_addr'] = packet.ip.src
+		pktinfos['dst_addr'] = packet.ip.dst
+		pktinfos['proto'] = packet.ip.proto
+		pktinfos["proto_name"] = packet.transport_layer
+		payload = None
+		if pktinfos["proto_name"] == "TCP": #Check for TCP packets
+			# payload = packet.data.data
+			pktinfos['src_port'] = packet.tcp.srcport
+			# print(dir(packet.tcp.dstport))
+			pktinfos['dst_port'] = int(packet.tcp.dstport.show)
 
-			if pktinfos["proto_name"] == "TCP": #Check for TCP packets
+		elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
+			pktinfos['src_port'] = packet.udp.srcport
+			# print(dir(packet.udp.dstport))
+			# print("-----------------------------------PORT --> %s" % int(packet.udp.dstport.show))
+			pktinfos['dst_port'] = int(packet.udp.dstport.show)
+			# payload = packet.data.data
+
+		elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
+			pktinfos['src_port'] = 0
+			pktinfos['dst_port'] = 0
+			# payload = packet.data.data
+
+		else:
+			pktinfos,payload=None, None
+
+		if hasattr(packet, "data"):
+			if hasattr(packet.data, "data"):
 				payload = packet.data.data
-				pktinfos['src_port'] = packet.tcp.srcport
-				# print(dir(packet.tcp.dstport))
-				pktinfos['dst_port'] = int(packet.tcp.dstport.show)
 
-			elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
-				pktinfos['src_port'] = packet.udp.srcport
-				# print(dir(packet.udp.dstport))
-				# print("-----------------------------------PORT --> %s" % int(packet.udp.dstport.show))
-				pktinfos['dst_port'] = int(packet.udp.dstport.show)
-				payload = packet.data.data
-
-			elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
-				pktinfos['src_port'] = 0
-				pktinfos['dst_port'] = 0
-				payload = packet.data.data
-
-			else:
-				pktinfos,payload=None, None
-
-			return pktinfos, payload
+		return pktinfos, payload
 
 	#filter outgoing only/incoming etc.
 	captures = filter_packets(captures)
@@ -171,11 +176,13 @@ def extract_features(captures):
 		frameNum = getFrameNumber()
 		frameNums.append(frameNum)
 
+		pktInfo, payload = decodeipv4()
 
 		frameDict["Frame Number"] = frameNum
 		frameDict["Frame Length"] = getFrameLength()
 		frameDict["Time"] = getTimes()
-		# frameDict["Entropy"] = Entropy(packet)
+		frameDict["Payload Length"] = len(payload) if payload else np.NAN
+		frameDict["Entropy"] = Entropy(packet) if payload else np.NAN
 
 		# print(packet)
 		print(frameDict)
