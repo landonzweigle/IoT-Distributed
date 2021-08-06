@@ -127,6 +127,36 @@ def extract_features(captures):
 
 		return -ent
 
+		def decodeipv4(packet):
+			pktinfos = {"src_addr":None, "dst_addr":None, "proto":None, "proto_name":None, "src_port":None, "dst_port":None}
+			pktinfos['src_addr'] = packet.ip.src
+			pktinfos['dst_addr'] = packet.ip.dst
+			pktinfos['proto'] = packet.ip.proto
+			pktinfos["proto_name"] = packet.transport_layer
+
+			if pktinfos["proto_name"] == "TCP": #Check for TCP packets
+				payload = packet.data.data
+				pktinfos['src_port'] = packet.tcp.srcport
+				# print(dir(packet.tcp.dstport))
+				pktinfos['dst_port'] = int(packet.tcp.dstport.show)
+
+			elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
+				pktinfos['src_port'] = packet.udp.srcport
+				# print(dir(packet.udp.dstport))
+				# print("-----------------------------------PORT --> %s" % int(packet.udp.dstport.show))
+				pktinfos['dst_port'] = int(packet.udp.dstport.show)
+				payload = packet.data.data
+
+			elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
+				pktinfos['src_port'] = 0
+				pktinfos['dst_port'] = 0
+				payload = packet.data.data
+
+			else:
+				pktinfos,payload=None, None
+
+			return pktinfos, payload
+
 	#filter outgoing only/incoming etc.
 	captures = filter_packets(captures)
 
