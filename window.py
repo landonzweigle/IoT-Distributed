@@ -75,11 +75,11 @@ def build_windows(features, frameNums):
 #returns a DataFrame of the features extracted.
 #This is what we extract:
 #Packet Header Features{
-#	ARP* 			[0,1]
+#	ARP* 			[0,1] (I might not implement this)
 #	IP				[0,1]
 #	ICMP			[0,1]
 #	ICMPV6			[0,1]
-#	EAPoL			[0,1]
+#	EAPoL*			[0,1] (I am a little confused about this)
 #	TCP				[0,1]
 #	UDP				[0,1]
 #	HTTP			[0,1]
@@ -134,33 +134,64 @@ def extract_features(captures):
 		pktinfos['dst_addr'] = packet.ip.dst
 		pktinfos['proto'] = packet.ip.proto
 		pktinfos["proto_name"] = packet.transport_layer
+
 		payload = None
 		if pktinfos["proto_name"] == "TCP": #Check for TCP packets
 			# payload = packet.data.data
 			pktinfos['src_port'] = packet.tcp.srcport
 			# print(dir(packet.tcp.dstport))
 			pktinfos['dst_port'] = int(packet.tcp.dstport.show)
-
+			pktinfos['TCP_win_size'] = packet.tcp.window_size
+			print("TCP:\n")
+			print(dir(packet.tcp))
+			print()
 		elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
 			pktinfos['src_port'] = packet.udp.srcport
-			# print(dir(packet.udp.dstport))
-			# print("-----------------------------------PORT --> %s" % int(packet.udp.dstport.show))
 			pktinfos['dst_port'] = int(packet.udp.dstport.show)
-			# payload = packet.data.data
-
 		elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
 			pktinfos['src_port'] = 0
 			pktinfos['dst_port'] = 0
-			# payload = packet.data.data
-
 		else:
 			pktinfos,payload=None, None
-
 		if hasattr(packet, "data"):
+
 			if hasattr(packet.data, "data"):
 				payload = packet.data.data
-
 		return pktinfos, payload
+
+	def getPackHeader():
+		names = ["IP","ICMP","ICMPv6","EAPoL","TCP","UDP","HTTP","HTTPS","DHCP","BOOTP","SSDP","DNS","MDNS","NTP","Padding","Router-Alert"]
+		outDict = {name:0 for name in names}
+		ethProto = packet.eth.type.hex_value
+		ipProto = int(packet.ip.proto)
+		print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%s"%ipProto)
+
+		srcPort = packet.tcp.srcport if ipProto==6  else (packet.udp.srcport if ipProto==17 else -1)
+		dstPort = packet.tcp.dstport if ipProto==6  else (packet.udp.dstport if ipProto==17 else -1)
+
+		#Network features (IP, ICMP, EAPol):
+
+
+		outDict["IP"] = int(ethProto == 2048 or ethProto == 34525)
+		outDict["EAPoL"] = int(ethProto == 34958)
+
+		outDict["ICMP"] = int(ipProto == 1)
+		outDict["ICMPv6"] = int(ipProto == 58)
+
+		#Transport Features (TCP/UDP):
+		outDict["TCP"] = int(ipProto == 6)
+		outDict["UDP"] = int(ipProto == 17)
+
+		
+		#Application Features (HTTP, DNS, etc.):
+		outDict["HTTP"] = int(srcPort == 80 or dstPort == 80)
+		outDict["HTTPS"] = int(srcPort == 443 or dstPort == 443)
+
+		outDict["DHCP"] = int((srcPort == 67 or srcPort == 68) or (dstPort==67 or dstPort==68))
+		outDict["BOOTP"] = int((srcPort == 1900 or srcPort == 2869 or srcPort == 5000) or (dstPort == 1900 or dstPort == 2869 or dstPort == 5000))
+
+
+		return outDict
 
 	#filter outgoing only/incoming etc.
 	captures = filter_packets(captures)
@@ -181,6 +212,10 @@ def extract_features(captures):
 		frameDict["Frame Number"] = frameNum
 		frameDict["Frame Length"] = getFrameLength()
 		frameDict["Time"] = getTimes()
+
+		frameDict.update(getPackHeader())
+
+		frameDict["TCP Window Size"] = pktInfo["TCP_win_size"] if(pktInfo["proto_name"]=="TCP") else  np.NAN
 		frameDict["Payload Length"] = len(payload) if payload else np.NAN
 		frameDict["Entropy"] = Entropy(packet) if payload else np.NAN
 
