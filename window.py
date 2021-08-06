@@ -35,67 +35,6 @@ def makeFiles(filename):
 	return outFile, pcap
 
 
-#---------------------------------------------------------------------------------
-def packetId(packet):
-	feats = {"IPsrc":0,"IPdst":0,"srcPrt":0,"dstPrt":0,"tLayer":'none'}
-	try:
-		feats["IPsrc"] = packet.ip.src
-		feats["IPdst"] = packet.ip.dst
-		if packet.transport_layer == "TCP":
-			feats["srcPrt"] = packet.tcp.srcport
-			feats["dstPrt"] = packet.tcp.dstport
-			feats["tLayer"] = "TCP"
-		elif packet.transport_layer == "UDP":
-			feats["srcPrt"] = packet.udp.srcport
-			feats["dstPrt"] = packet.udp.dstport
-			feats["tLayer"] = "UDP"
-		else:
-			feats["tLayer"] = packet.transport_layer
-	except AttributeError:
-		print('error extracting features')
-	return feats
-
-
-def makeDf(window):
-	df = []
-	for packet in window:
-		df.append(packetId(packet))
-		df.append(features(packet))
-	return df
-
-#---------------------------------------------------------------#
-#---------------------------WINHOLDER?--------------------------#
-#---------------------------------------------------------------#
-
-
-class WinHolder:
-	def __init__(self,packets):
-		self.window = packets
-		self.df = makeDf(self.window)
-
-	def equals(self,rhs):
-		return self.window == rhs.window
-
-	#We can implement this method later to write the features from the window into a csv
-	def writeDf(self,csvWriter):
-		csvWriter.writerow(self.df)
-		return csvWriter
-
-	def testing(self):
-		print('window: numPackets = ' + str(len(self.window)) )
-		for packet in self.window:
-			print(str(packetId(packet)))
-	def writeFile(self,file):
-		file.write('packets: ' + str(len(self.window)) + '\n')
-		index = 0
-		for packet in self.window:
-			file.write('[' + str(index) + ']' + str(packetId(packet)) + '\n')
-			index = index + 1
-		file.write('\n')
-		
-#---------------------------------------------------------------------------------
-
-
 def build_windows(features, frameNums):
 	full = pds.DataFrame()
 	frameIDArr = []
@@ -168,6 +107,26 @@ def extract_features(captures):
 	def getFrameLength():
 		return packet.length
 
+	def Entropy(packet):
+		# We determine the frequency of each byte
+		# in the dataset and if this frequency is not null we use it for the
+		# entropy calculation
+		dataSize = len(data)
+		ent = 0.0
+
+		freq={}
+		for c in data:
+			freq[c] = freq.get(c, 0)+1
+
+		# a byte can take 256 values from 0 to 255. Here we are looping 256 times
+		# to determine if each possible value of a byte is in the dataset
+		for key in freq.keys():
+			f = float(freq[key])/dataSize
+			if f > 0: # to avoid an error for log(0)
+				ent = ent + f * math.log(f, LOG_BASE)
+
+		return -ent
+
 	#filter outgoing only/incoming etc.
 	captures = filter_packets(captures)
 
@@ -186,6 +145,7 @@ def extract_features(captures):
 		frameDict["Frame Number"] = frameNum
 		frameDict["Frame Length"] = getFrameLength()
 		frameDict["Time"] = getTimes()
+		# frameDict["Entropy"] = Entropy(packet)
 
 		# print(packet)
 		print(frameDict)
@@ -194,6 +154,8 @@ def extract_features(captures):
 
 	print("******************************************************")
 	return packets, frameNums
+
+
 
 #Filters packets and returns an array with only n=windowSize packets
 def filter_packets(winAll):
