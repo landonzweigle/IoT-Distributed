@@ -15,7 +15,7 @@ def makeFiles(filename):
 	if not os.path.exists(storeDir):
 		os.mkdir(storeDir)
 	if os.path.exists(inFileName):
-		pcap = pyshark.FileCapture(inFileName)
+		pcap = pyshark.FileCapture(inFileName)#, display_filter="dns")
 	else:
 		raise Exception(inFileName + ' not found')
 	if os.path.exists(outFileName):
@@ -51,7 +51,8 @@ def build_windows(features, frameNums):
 	maxCount, stepSize = (overlapCount,1) if(useOverlap) else (nonOverlapCount, windowSize)
 
 	print("max count: %i, step size: %i" %(maxCount, stepSize))
-
+	featCount = len(features[0])
+	print("Features count: %s"%featCount)
 	for i in range(0, maxCount, stepSize): #we can change step to windowsize to do a non-inclusive window building (e.g. 1-5, 5-10, )
 		#window full is every packet after this windows starting packet so "bad"/unrelevant packets can be sorted out.
 		frames = features[i:i+windowSize]
@@ -61,8 +62,8 @@ def build_windows(features, frameNums):
 		window = {}
 		[window.update(frameDF) for frameDF in frames]
 
-		print(window)
-		print("=================================================")
+		# print(window)
+		# print("=================================================")
 		winDF = pds.DataFrame([window])
 		frameIDArr.append(winFrameNums)
 		full = full.append(winDF, ignore_index=True)
@@ -130,48 +131,60 @@ def extract_features(captures):
 
 	def decodeipv4():
 		pktinfos = {"src_addr":None, "dst_addr":None, "proto":None, "proto_name":None, "src_port":None, "dst_port":None}
-		pktinfos['src_addr'] = packet.ip.src
-		pktinfos['dst_addr'] = packet.ip.dst
-		pktinfos['proto'] = packet.ip.proto
-		pktinfos["proto_name"] = packet.transport_layer
+		ethProto = packet.eth.type.hex_value
+		if(ethProto==2048 or ethProto==34525):
+			ipPacket = packet.ip if ethProto==2048 else (packet.ipv6 if ethProto==34525 else None) # should never be none.
 
-		payload = None
-		if pktinfos["proto_name"] == "TCP": #Check for TCP packets
-			# payload = packet.data.data
-			pktinfos['src_port'] = packet.tcp.srcport
-			# print(dir(packet.tcp.dstport))
-			pktinfos['dst_port'] = int(packet.tcp.dstport.show)
-			pktinfos['TCP_win_size'] = packet.tcp.window_size
-			print("TCP:\n")
-			print(dir(packet.tcp))
-			print()
-		elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
-			pktinfos['src_port'] = packet.udp.srcport
-			pktinfos['dst_port'] = int(packet.udp.dstport.show)
-		elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
-			pktinfos['src_port'] = 0
-			pktinfos['dst_port'] = 0
-		else:
-			pktinfos,payload=None, None
-		if hasattr(packet, "data"):
+			pktinfos['src_addr'] = ipPacket.src
+			pktinfos['dst_addr'] = ipPacket.dst
+			pktinfos['proto'] = ipPacket.proto if ethProto==2048 else (ipPacket.nxt if ethProto==34525 else None)
+			pktinfos["proto_name"] = packet.transport_layer
 
-			if hasattr(packet.data, "data"):
-				payload = packet.data.data
-		return pktinfos, payload
+			payload = None
+			if pktinfos["proto_name"] == "TCP": #Check for TCP packets
+				# payload = packet.data.data
+				pktinfos['src_port'] = packet.tcp.srcport
+				# print(dir(packet.tcp.dstport))
+				pktinfos['dst_port'] = int(packet.tcp.dstport.show)
+				pktinfos['TCP_win_size'] = packet.tcp.window_size
+
+			elif pktinfos["proto_name"] == "UDP": #Check for UDP packets
+				pktinfos['src_port'] = packet.udp.srcport
+				pktinfos['dst_port'] = int(packet.udp.dstport.show)
+			elif pktinfos["proto_name"] == "ICMP": #Check for ICMP packets
+				pktinfos['src_port'] = 0
+				pktinfos['dst_port'] = 0
+			else:
+				pktinfos,payload=None, None
+			if hasattr(packet, "data"):
+
+				if hasattr(packet.data, "data"):
+					payload = packet.data.data
+			return pktinfos, payload
+		return pktinfos, None
 
 	def getPackHeader():
-		names = ["IP","ICMP","ICMPv6","EAPoL","TCP","UDP","HTTP","HTTPS","DHCP","BOOTP","SSDP","DNS","MDNS","NTP","Padding","Router-Alert"]
-		outDict = {name:0 for name in names}
+		names = ["IP","ICMP","ICMPv6","EAPoL","TCP","UDP","HTTP","HTTPS","DHCP","BOOTP","DNS"]#, "Padding","Router-Alert"]
+		#set every value initially to NaN. This allows us to see what is not implemented yet, and what is.
+		outDict = {name:np.NAN for name in names}
 		ethProto = packet.eth.type.hex_value
-		ipProto = int(packet.ip.proto)
-		print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%s"%ipProto)
+		ipProto = int(packet.ip.proto if ethProto==2048 else (packet.ipv6.nxt if ethProto==34525 else -1))
 
-		srcPort = packet.tcp.srcport if ipProto==6  else (packet.udp.srcport if ipProto==17 else -1)
-		dstPort = packet.tcp.dstport if ipProto==6  else (packet.udp.dstport if ipProto==17 else -1)
+		ipPacket = packet.ip if ethProto==2048 else (packet.ipv6 if ethProto==34525 else None) # should never be none.
+		print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%s"%ethProto)
+		# if(ethProto==2048 or ethProto==34525):
+		# 	print(dir(packet.ip))
+		# 	print(packet.ip.DATA_LAYER)
+
+		print(packet)
+		print(dir((packet.tcp if ipProto==6  else (packet.udp if ipProto==17 else -1))))
+
+		srcPort = int(packet.tcp.srcport if ipProto==6  else (packet.udp.srcport if ipProto==17 else -1))
+		dstPort = int(packet.tcp.dstport if ipProto==6  else (packet.udp.dstport if ipProto==17 else -1))
+
+
 
 		#Network features (IP, ICMP, EAPol):
-
-
 		outDict["IP"] = int(ethProto == 2048 or ethProto == 34525)
 		outDict["EAPoL"] = int(ethProto == 34958)
 
@@ -184,11 +197,17 @@ def extract_features(captures):
 
 		
 		#Application Features (HTTP, DNS, etc.):
-		outDict["HTTP"] = int(srcPort == 80 or dstPort == 80)
+		outDict["HTTP"] = int(hasattr(packet, "http") and (srcPort == 80 or dstPort == 80))
 		outDict["HTTPS"] = int(srcPort == 443 or dstPort == 443)
 
-		outDict["DHCP"] = int((srcPort == 67 or srcPort == 68) or (dstPort==67 or dstPort==68))
+		# print(srcPort)
+		# print(ipPacket.src)
+		# print(ipPacket.dst)
+
+		outDict["DHCP"] = int(hasattr(packet, "dhcp") and ((srcPort == 67 or srcPort == 68) or (dstPort==67 or dstPort==68) and (ipPacket.src=="0.0.0.0" and ipPacket.dst=="255.255.255.255")))
 		outDict["BOOTP"] = int((srcPort == 1900 or srcPort == 2869 or srcPort == 5000) or (dstPort == 1900 or dstPort == 2869 or dstPort == 5000))
+
+		outDict["DNS"] = int(hasattr(packet, "dns") and (srcPort == 53 or dstPort == 53))
 
 
 		return outDict
@@ -211,6 +230,8 @@ def extract_features(captures):
 
 		frameDict["Frame Number"] = frameNum
 		frameDict["Frame Length"] = getFrameLength()
+		frameDict["SRC PORT"] = pktInfo["src_port"]
+		frameDict["DST PORT"] = pktInfo["dst_port"]
 		frameDict["Time"] = getTimes()
 
 		frameDict.update(getPackHeader())
@@ -220,11 +241,10 @@ def extract_features(captures):
 		frameDict["Entropy"] = Entropy(packet) if payload else np.NAN
 
 		# print(packet)
-		print(frameDict)
+		# print(frameDict)
 		packets.append(frameDict)
 		print("------------------")
 
-	print("******************************************************")
 	return packets, frameNums
 
 
@@ -277,7 +297,7 @@ if __name__=="__main__":
 	storage, captures = main(sys.argv[1:])
 
 	features, frameNums = extract_features(captures)
-	print(features)
+	# print(features)
 	windowArray = build_windows(features, frameNums)
 
 
