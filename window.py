@@ -9,8 +9,6 @@ numWindows = 5
 LOG_BASE = 2 # math.e
 FILTER_PACKETS = False
 
-inFileName=""
-outFileName=""
 
 def makeFiles(filename):
 	outFileName = storeDir + filename + ".csv"
@@ -23,7 +21,6 @@ def makeFiles(filename):
 		raise Exception(inFileName + ' not found')
 	if os.path.exists(outFileName):
 		os.remove(outFileName)
-	outFile = open(outFileName, "w")
 	print('reading from: ' + inFileName)
 	# print(pcap)
 	print('storing in: ' + outFileName)
@@ -36,7 +33,7 @@ def makeFiles(filename):
 	for a in dir(pcap[0]):
 		print(a)
 	print("-------------------------------------")
-	return outFile, pcap
+	return outFileName, pcap
 
 
 def build_windows(features, frameNums):
@@ -303,8 +300,9 @@ if __name__=="__main__":
 	# print(features)
 	windowArray = build_windows(features, frameNums)
 
-	print(outFileName)
-
+	print("outfile: %s" % storage)
+	# print(windowArray)
+	windowArray.to_csv(storage)
 
 #-------------------------for testing/debugging------------------------------------
 	# for window in windowArrayB:
