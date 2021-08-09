@@ -9,6 +9,9 @@ numWindows = 5
 LOG_BASE = 2 # math.e
 FILTER_PACKETS = False
 
+inFileName=""
+outFileName=""
+
 def makeFiles(filename):
 	outFileName = storeDir + filename + ".csv"
 	inFileName = "./Captures/" + filename + ".pcap"
@@ -300,6 +303,7 @@ if __name__=="__main__":
 	# print(features)
 	windowArray = build_windows(features, frameNums)
 
+	print(outFileName)
 
 
 #-------------------------for testing/debugging------------------------------------
