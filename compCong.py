@@ -1,8 +1,10 @@
 import sys, os, time, pprint, window
 from Utility import *
 import pandas as pds
+import concurrent.futures as futures
 
 CAPTURE_DIR="./Captures/"
+OUT_DIR = "./windowParsed/"
 PRETTY_PRINTER=pprint.PrettyPrinter(indent=4)
 
 def get_captures(capDir):
@@ -26,7 +28,7 @@ def get_captures(capDir):
 
 def get_devies(files):
     #devicePrefixes is a set (no duplicates) which contains the prefixes for each device.
-    devicePrefixes={"Awox","AmazonDot","AmazonEcho","AmazonShow","DLink","TPLink","Musaic","IView","IDevice","SmartThingsHub","Omna","Wemo"}
+    devicePrefixes=sorted(list({"Awox","AmazonDot","AmazonEcho","AmazonShow","DLink","TPLink","Musaic","IView","IDevice","SmartThingsHub","Omna","Wemo"}))
     
     #devices is a dict such that: key=*device_name*:value=*[files]*
     devices = {deviceName:[] for deviceName in devicePrefixes}
@@ -66,7 +68,16 @@ def conglomerate_data(deviceDict):
         
 #this code will be multithreaded to increase performance.
 def conglomerate_data_fast(deviceDict):
-    
+    dfArr = []
+    with futures.ProcessPoolExecutor(max_workers=10) as executer:
+
+        running = [executer.submit(get_device_df, name, i, files ) for i, (name, files) in enumerate(deviceDict.items())]
+
+        for res in futures.as_completed(running):
+            dfArr.append(res.result())
+    print(len(dfArr))
+    congDF = pds.DataFrame().append(dfArr).sort_index()
+    return congDF
 
 
 def main(capDir):
@@ -74,8 +85,8 @@ def main(capDir):
     caps = get_captures(capDir)
     devices = get_devies(caps)
 
-    csvCong = conglomerate_data(devices)
-    csvCong.to_csv("./test.csv")
+    csvCong = conglomerate_data_fast(devices)
+    csvCong.to_csv(os.path.normpath(OUT_DIR+"/"+"Conglomerate.csv"))
 
 if __name__ == "__main__":
     if(len(sys.argv)==2):
