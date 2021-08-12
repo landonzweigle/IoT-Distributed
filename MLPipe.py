@@ -25,20 +25,6 @@ class MachineLearningModel:
 		#Train the model:
 		self.train_model()
 
-
-	#Return a dict of each metric.
-	def score(self):
-		self.predicted = self.clf.predict(self.xTE)
-		self.predictedProb = self.clf.predict_proba(self.xTE)
-
-		resDict = {}
-		resDict["ACC"] = accuracy_score(self.yTE, self.predicted)
-		resDict["bACC"] = balanced_accuracy_score(self.yTE, self.predicted)
-		prec, rec, fscore, supp = precision_recall_fscore_support(self.yTE, self.predicted, average='weighted', zero_division=0)
-		resDict.update({"PRECISION":prec, "RECALL":rec, "FSCORE":fscore})
-
-		return resDict
-
 	def balance(self):
 		#This is my super readable, super big brain undersampling code which we shouldn't use. (keeping just in case our data in unbalanced and gives us bad results) 
 		# 	shuffle = self.congDF.sample(frac=1)
@@ -62,6 +48,23 @@ class MachineLearningModel:
 		self.xTR,self.xTE,self.yTR,self.yTE = train_test_split(self.balanced.values,self.balanced.index.values,train_size=0.8)
 
 		# print("Train len: %d, Test len: %d, Test Ratio: %s" % (len(self.train), len(self.test), float(len(self.train))/float(len(self.train) + len(self.test))))
+
+	#Return a dict of each metric.
+	def score(self):
+		self.predicted = self.clf.predict(self.xTE)
+		self.predictedProb = self.clf.predict_proba(self.xTE)
+
+		resDict = {}
+		resDict["ACC"] = accuracy_score(self.yTE, self.predicted)
+		resDict["bACC"] = balanced_accuracy_score(self.yTE, self.predicted)
+		prec, rec, fscore, supp = precision_recall_fscore_support(self.yTE, self.predicted, average='weighted', zero_division=0)
+		
+		tn, fp, fn, tp = confusion_matrix(self.yTE, self.predicted).ravel()
+
+		resDict.update({"PRECISION":prec, "RECALL":rec, "FSCORE":fscore, "True Negative": tn, "False Positive": fp, "False Negative": fn, "True Positive": tp})
+
+		return resDict
+
 
 
 class MLP(MachineLearningModel):
