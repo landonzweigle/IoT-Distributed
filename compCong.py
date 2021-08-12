@@ -69,7 +69,7 @@ def conglomerate_data(deviceDict):
 #this code will be multithreaded to increase performance.
 def conglomerate_data_fast(deviceDict):
     dfArr = []
-    with futures.ProcessPoolExecutor(max_workers=10) as executer:
+    with futures.ProcessPoolExecutor(max_workers=15) as executer:
 
         running = [executer.submit(get_device_df, name, i, files ) for i, (name, files) in enumerate(deviceDict.items())]
 
