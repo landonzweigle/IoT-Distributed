@@ -67,9 +67,9 @@ def build_windows(features, frameNums):
 		winDF = pds.DataFrame([window])
 		frameIDArr.append(winFrameNums)
 		full = full.append(winDF, ignore_index=True)
-	full.to_csv("./Test.csv")
-	print(frameIDArr)
-	print(full)
+	# full.to_csv("./Test.csv")
+	# print(frameIDArr)
+	# print(full)
 	return full
 
 
@@ -171,13 +171,13 @@ def extract_features(captures):
 		ipProto = int(packet.ip.proto if ethProto==2048 else (packet.ipv6.nxt if ethProto==34525 else -1))
 
 		ipPacket = packet.ip if ethProto==2048 else (packet.ipv6 if ethProto==34525 else None) # should never be none.
-		print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%s"%ethProto)
+		# print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%s"%ethProto)
 		# if(ethProto==2048 or ethProto==34525):
 		# 	print(dir(packet.ip))
 		# 	print(packet.ip.DATA_LAYER)
 
-		print(packet)
-		print(dir((packet.tcp if ipProto==6  else (packet.udp if ipProto==17 else -1))))
+		# print(packet)
+		# print(dir((packet.tcp if ipProto==6  else (packet.udp if ipProto==17 else -1))))
 
 		srcPort = int(packet.tcp.srcport if ipProto==6  else (packet.udp.srcport if ipProto==17 else -1))
 		dstPort = int(packet.tcp.dstport if ipProto==6  else (packet.udp.dstport if ipProto==17 else -1))
@@ -228,7 +228,7 @@ def extract_features(captures):
 
 		pktInfo, payload = decodeipv4()
 
-		frameDict["Frame Number"] = frameNum
+		# frameDict["Frame Number"] = frameNum
 		frameDict["Frame Length"] = getFrameLength()
 		frameDict["SRC PORT"] = pktInfo["src_port"]
 		frameDict["DST PORT"] = pktInfo["dst_port"]
@@ -243,7 +243,7 @@ def extract_features(captures):
 		# print(packet)
 		# print(frameDict)
 		packets.append(frameDict)
-		print("------------------")
+		# print("------------------")
 
 	return packets, frameNums
 
@@ -291,6 +291,16 @@ def main(argv):
 		captures.append(packet)
 	return storage, captures	
 
+
+def from_many(files):
+	dfOut = pds.DataFrame()
+	for fPcap in files:
+		pcap = pyshark.FileCapture(fPcap)
+		features, frameNums = extract_features(pcap)
+		del pcap
+		windowArray = build_windows(features, frameNums)
+		dfOut = dfOut.append(windowArray)
+	return dfOut
 
 	
 if __name__=="__main__":
