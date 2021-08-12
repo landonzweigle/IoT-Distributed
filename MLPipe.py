@@ -71,13 +71,12 @@ class MLP(MachineLearningModel):
         self.clf = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=(5, 2), learning_rate_init=0.001, random_state=1)
         self.clf.fit(self.xTR, self.yTR)
 
-    def score(self):
-        #this sets self.predicted and self.predictedProb (and returns other simple/basic metrics.)
-        resDict = super().score()
-        resDict["rAUC"] = roc_auc_score(self.yTE, self.predictedProb, multi_class='ovr')
-
-        self.results = resDict
-        return resDict
+	def score(self):
+		resDict = super().score()
+        
+		resDict["rAUC"] = roc_auc_score(self.yTE, (self.predictedProb if self.predictedProb.shape[1]>2 else self.predictedProb[:,1]), multi_class="ovr")
+		self.results = resDict
+		return resDict
 
 
 
@@ -88,7 +87,7 @@ class MLP(MachineLearningModel):
 
 
 def generate_TestData(nClasses=15, nRows=10000, nColumns=500):
-    return pds.DataFrame(np.random.randint(0,10,(nRows,nColumns-1)), index=np.random.randint(0,nClasses-1, nRows))
+    return pds.DataFrame(np.random.randint(0,10,(nRows,nColumns-1)), index=np.random.randint(0,nClasses, nRows))
 
 GEN_DATA=True
 if __name__=="__main__":
