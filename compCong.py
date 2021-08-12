@@ -42,24 +42,32 @@ def get_devies(files):
     PRETTY_PRINTER.pprint(devices)
     return devices
 
-# def get_device_df()
+def get_device_df(deviceName, deviceID, deviceFiles):
+    filesTrue = [os.path.normpath(CAPTURE_DIR + "/" + f) for f in deviceFiles]
+    # print(filesTrue)
+    # print("%i: %s: %s" % (i, deviceName, filesTrue))
+    resDF = window.from_many(filesTrue)
+
+    resDF["Device"] = [deviceName] * len(resDF)
+    resDF.index = [deviceID] * len(resDF)
+
+    return resDF
 
 def conglomerate_data(deviceDict):
-    global CAPTURE_DIR
     congDF = pds.DataFrame()
 
     for i, dictItem in enumerate(deviceDict.items()):
         deviceName, files = dictItem
-        filesTrue = [os.path.normpath(CAPTURE_DIR + "/" + f) for f in files]
-        print(filesTrue)
-        print("%i: %s: %s" % (i, deviceName, filesTrue))
-        dfIn = window.from_many(filesTrue)
-        dfIn["Device"] = [deviceName] * len(dfIn)
-        dfIn.index = [i] * len(dfIn)
-        # print(dfIn)
+
+        dfIn = get_device_df(deviceName, i, files)
+
         congDF = congDF.append(dfIn)
     return congDF
         
+#this code will be multithreaded to increase performance.
+def conglomerate_data_fast(deviceDict):
+    
+
 
 def main(capDir):
     debug(capDir, COLORS.BLUE)
