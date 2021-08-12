@@ -1,6 +1,8 @@
 *.pcap
 *.csv
 
+windowParsed/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
