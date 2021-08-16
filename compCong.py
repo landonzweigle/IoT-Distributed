@@ -14,7 +14,7 @@ def get_captures(capDir):
     miss=COLORS.RED
 
     if(not os.path.isdir(capDir)):
-        raise Exception("Argument %s is not a valid directory..."%capDir)
+        raise Exception("Argument:'capDir' %s is not a valid directory..."%capDir)
     for f in os.listdir(capDir):
         fType=COLORS.WHITE
 

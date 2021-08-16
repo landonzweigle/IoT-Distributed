@@ -70,17 +70,17 @@ def raise_filePath_DNE(file):
 #path must be a valid directory
 def get_unique_filename(name, path='.'):
     if(isinstance(name,str)==False and not name):
-        raise Exception("argument:'name' must be a valid (non empty) string.")
+        raise Exception("Argument:'name' must be a valid (non empty) string.")
 
     if(os.path.isdir(path)==False):
-        raise Exception("argument:'path' %s is not a valid path. When creating a unique file, the path must exist."%path)
+        raise Exception("Argument:'path' %s is not a valid path. When creating a unique file, the path must exist."%path)
 
     nameSPLT = name.split('.')
     if(len(nameSPLT)>1):
         nameExtension="."+nameSPLT[-1]
         nameRoot=nameSPLT[0]
     else:
-        raise Exception("argument:'name' (provided '%s') must be of the form [*valid os-file characters*].[a-zA-Z]"%name)
+        raise Exception("Argument:'name' (provided '%s') must be of the form [*valid os-file characters*].[a-zA-Z]"%name)
 
     baseName = os.path.normpath("%s/%s"%(path,nameRoot))
     newPath = baseName + nameExtension
