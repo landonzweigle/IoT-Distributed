@@ -59,10 +59,10 @@ def raise_filePath_DNE(file):
         return "./%s"%(file)
     elif(splitLen>1):
         fileName = fileSPLT[-1]
-        filePath = fileSPLT[:-1]
+        filePath = "/".join(fileSPLT[:-1])
         if(os.path.isdir(filePath)==False):
             raise Exception("File path is not valid.")
-        else
+        else:
             return file
 
 #returns name appended to path where name is non-colliding (if file path+name+name.extension exists, return path+name(n)+name.extension where n is the first unique path)
@@ -77,18 +77,19 @@ def get_unique_filename(name, path='.'):
 
     nameSPLT = name.split('.')
     if(len(nameSPLT)>1):
-        nameExtension=nameSPLT[-1]
+        nameExtension="."+nameSPLT[-1]
         nameRoot=nameSPLT[0]
     else:
         raise Exception("argument:'name' (provided '%s') must be of the form [*valid os-file characters*].[a-zA-Z]"%name)
 
-    baseName = os.path.normpath(path + "/" + name)
-    newPath=baseName
+    baseName = os.path.normpath("%s/%s"%(path,nameRoot))
+    newPath = baseName + nameExtension
+
     tried=0
     while(os.path.isfile(newPath)):
         debug("...Path %s exists."%newPath,COLORS.RED)
         tried+=1
-        newPath=baseName + "(%d)" % tried
+        newPath="%s(%d)%s" % (baseName,tried,nameExtension)
         debug("\tTrying new path %s" % newPath,COLORS.RED)
 
 
