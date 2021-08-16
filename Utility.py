@@ -1,3 +1,4 @@
+import os, sys
 from enum import Enum
 from re import finditer
 
@@ -47,3 +48,33 @@ def starts_with_any(toMatch, startwithArr):
     #this is implicit and doesn't need to be added
     return None
     
+#returns name appended to path where name is non-colliding (if file path+name+name.extension exists, return path+name(n)+name.extension where n is the first unique path)
+#path is optional. if not provided return will be CWD+name(n)
+#path must be a valid directory
+def get_unique_filename(name, path='.'):
+    if(isinstance(name,str)==True and not name):
+        raise Exception("argument:'name' must be a valid (non empty) string.")
+
+    if(os.path.isdir(path)==False):
+        raise Exception("argument:'path' %s is not a valid path. When creating a unique file, the path must exist."%path)
+
+    nameSPLT = name.split('.')
+    if(len(nameSPLT)>1):
+        nameExtension=nameSPLT[-1]
+        nameRoot=nameSPLT[0]
+    else:
+        raise Exception("argument:'name' (provided '%s') must be of the form [*valid os-file characters*].[a-zA-Z]"%name)
+
+    baseName = os.path.normpath(path + "/" + name)
+	newPath=baseName
+	tried=0
+	while(os.path.isfile(newPath)):
+		debug("...Path %s exists."%newPath,COLORS.RED)
+		tried+=1
+		newPath=baseName + "(%d)" % tried
+		debug("\tTrying new path %s" % newPath,COLORS.RED)
+
+
+	debug("\nexp dir is %s" % newPath, COLORS.GREEN)
+	# os.mkdir(newPath)
+	return newPath
