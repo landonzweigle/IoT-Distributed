@@ -1,6 +1,7 @@
 import os, sys, MLPipe
-import pandas as pds
+import pandas as pds, numpy as np
 from datetime import datetime
+from scipy import stats
 from Utility import *   #get_unique_filename, raise_filePath_DNE, debug
 
 CONG_DIR="./windowParsed"
@@ -45,6 +46,8 @@ def main(saveFile, cong=None):
 
     congDF = cleanDF(pds.read_csv(cong, index_col=0))
 
+    return
+
     resIndex = []
     resData = []
 
@@ -71,6 +74,12 @@ def cleanDF(df):
     #drop every column where there exists only na values: 
     df = df.dropna(axis=1, how='all')
     df = df.fillna(-1)
+
+    lenDF = pds.DataFrame([{"NAME":dfg["Device"].values[-1],"N":len(dfg)} for _,dfg in df.groupby("Device")])
+
+    removed= lenDF[lenDF.isin(lenDF[lenDF["N"]>10])==False].dropna()["NAME"].values
+    a = list([debug("Device %s does not have enough data."%dev,COLORS.RED) for dev in removed])
+
     return df
     
 
