@@ -5,7 +5,7 @@ from numpy import float128
 
 storeDir = "./windowParsed/"
 windowSize = 5
-numWindows = 5
+# numWindows = 5
 LOG_BASE = 2 # math.e
 FILTER_PACKETS = False
 
