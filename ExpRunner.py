@@ -36,6 +36,8 @@ def main(saveFile, cong=None):
     if(not cong):
         cong=select_cong()
     cong = raise_filePath_DNE(cong)
+    if(os.path.isfile(cong)==False):
+        raise Exception("Argument:'cong' is not a valid file.")
 
     debug("Using Conglomerate at %s"%cong, COLORS.GREEN)
 
@@ -56,7 +58,6 @@ def main(saveFile, cong=None):
 
         dfMLP = MLPipe.MLP(df)
         results = dfMLP.score()
-
         resIndex.append(uniqueName)
         resData.append(results)
 
@@ -76,6 +77,10 @@ def cleanDF(df):
 if __name__=="__main__":
     now = datetime.now().strftime("%m-%d-%y")
     savePath=get_unique_filename("results[%s].csv"%now)
-    print(savePath)
-    # sys.exit(0)
-    main(savePath)
+
+    if(len(sys.argv)==2):
+        print("using positional argument 'Conglomerate_In'")
+
+    congIN = sys.argv[1] if len(sys.argv)==2 else None
+
+    main(savePath, congIN)
