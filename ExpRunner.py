@@ -1,5 +1,7 @@
 import os, sys, MLPipe
 import pandas as pds
+from datetime import datetime
+from Utility import get_unique_filename
 
 CONG_CSV="./windowParsed/Conglomerate.csv"
 
@@ -25,7 +27,9 @@ def main():
 
     resDF = pds.DataFrame(data=resData,index=resIndex)
     print(resDF)
-    resDF.to_csv("results.csv")
+    
+    now = datetime.now().strftime("%m-%d-%y")
+    resDF.to_csv(get_unique_filename("results.csv"))
     return resDF
 
 def cleanDF(df):
