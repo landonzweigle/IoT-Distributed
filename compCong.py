@@ -1,5 +1,6 @@
 import sys, os, time, pprint, window
 from Utility import *
+from datetime import datetime
 import pandas as pds
 import concurrent.futures as futures
 
@@ -86,7 +87,9 @@ def main(capDir):
     devices = get_devies(caps)
 
     csvCong = conglomerate_data_fast(devices)
-    csvCong.to_csv(os.path.normpath(OUT_DIR+"/"+"Conglomerate.csv"))
+    now = datetime.now().strftime("%m-%d-%y")
+    savePath=get_unique_filename("Conglomerate[%s].csv"%now, path=OUT_DIR)
+    csvCong.to_csv(savePath)
 
 if __name__ == "__main__":
     if(len(sys.argv)==2):
