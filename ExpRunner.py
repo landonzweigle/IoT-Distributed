@@ -46,8 +46,6 @@ def main(saveFile, cong=None):
 
     congDF = cleanDF(pds.read_csv(cong, index_col=0))
 
-    return
-
     resIndex = []
     resData = []
 
@@ -57,12 +55,12 @@ def main(saveFile, cong=None):
         print("DeviceID: %s"%devID)
 
         df = congDF.drop("Device",axis=1)
-        df.index = df.index.map(lambda x: int(x==devID))
+        df.index = (df.index==devID).astype(int)
 
-        dfMLP = MLPipe.MLP(df)
+        dfMLP = MLPipe.MLP(df,kFoldCV=10)
         results = dfMLP.score()
         resIndex.append(uniqueName)
-        resData.append(results)
+        resData.append(results.mean())
 
     resDF = pds.DataFrame(data=resData,index=resIndex)
     print(resDF)
@@ -76,8 +74,8 @@ def cleanDF(df):
     df = df.fillna(-1)
 
     lenDF = pds.DataFrame([{"NAME":dfg["Device"].values[-1],"N":len(dfg)} for _,dfg in df.groupby("Device")])
-
-    removed= lenDF[lenDF.isin(lenDF[lenDF["N"]>10])==False].dropna()["NAME"].values
+    print(lenDF)
+    removed= lenDF[lenDF.isin(lenDF[lenDF["N"]>0])==False].dropna()["NAME"].values
     a = list([debug("Device %s does not have enough data."%dev,COLORS.RED) for dev in removed])
 
     return df
