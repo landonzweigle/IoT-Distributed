@@ -7,6 +7,8 @@ class COLORS(Enum):
     GREEN="\033[32m"
     BLUE="\033[34m"
     WHITE="\033[37m"
+    BLACK="\u001b[38;5;16m"
+    ORANGE="\u001b[38;5;178m"
 
 def debug(msg="", color=None):
     if(color != None and not isinstance(color, COLORS)):
