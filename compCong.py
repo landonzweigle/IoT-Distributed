@@ -6,7 +6,9 @@ import concurrent.futures as futures
 
 CAPTURE_DIR="./Captures/"
 OUT_DIR = "./windowParsed/"
+DEVICE_LIST="./Captures/device prefix list.txt"
 PRETTY_PRINTER=pprint.PrettyPrinter(indent=4)
+SAVE_CSV=False
 
 def get_captures(capDir):
     toRet=[]
@@ -29,8 +31,14 @@ def get_captures(capDir):
 
 def get_devies(files):
     #devicePrefixes is a set (no duplicates) which contains the prefixes for each device.
-    devicePrefixes=sorted(list({"Awox","AmazonDot","AmazonEcho","AmazonShow","DLink","TPLink","Musaic","IView","IDevice","SmartThingsHub","Omna","Wemo"}))
-    
+    devicePrefixes = []
+    with open(DEVICE_LIST) as deviceFile:
+        devicePrefixes = sorted(deviceFile.readlines())
+        debug(devicePrefixes,COLORS.BLUE)
+        devicePrefixes = [devPref.rstrip() for devPref in devicePrefixes]
+
+    # devicePrefixes=sorted(list({"Awox","AmazonDot","AmazonEcho","AmazonShow","DLink","TPLink","Musaic","IView","IDevice","SmartThingsHub","Omna","Wemo"}))
+    debug(devicePrefixes,COLORS.BLUE)
     #devices is a dict such that: key=*device_name*:value=*[files]*
     devices = {deviceName:[] for deviceName in devicePrefixes}
 
@@ -40,7 +48,7 @@ def get_devies(files):
         if(pref):
             devices[pref].append(f)
         else:
-            debug(splits,COLORS.RED)
+            debug(f,COLORS.RED)
             
     PRETTY_PRINTER.pprint(devices)
     return devices
@@ -89,7 +97,11 @@ def main(capDir):
     csvCong = conglomerate_data_fast(devices)
     now = datetime.now().strftime("%m-%d-%y")
     savePath=get_unique_filename("Conglomerate[%s].csv"%now, path=OUT_DIR)
-    csvCong.to_csv(savePath)
+    if(SAVE_CSV):
+        csvCong.to_csv(savePath)
+    else:
+        debug("WARNING, %s FILE NOTE CREATED."%savePath, COLORS.RED)
+
 
 if __name__ == "__main__":
     if(len(sys.argv)==2):
