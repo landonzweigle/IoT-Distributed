@@ -40,10 +40,14 @@ def starts_with_any(toMatch, startwithArr):
     toMatchLower = toMatch.lower()
     for start in startwithArr:
         startLower = start.lower()
-        debug("%s <--> %s"%(toMatchLower,startLower))
         if toMatchLower.startswith(startLower):
+            debug("%s <--> %s"%(toMatchLower,startLower),COLORS.GREEN)
             debug()
             return start
+        else:
+            debug("%s <--> %s"%(toMatchLower,startLower),COLORS.RED)
+
+
     debug()
     #this is implicit and doesn't need to be added
     return None
