@@ -6,7 +6,7 @@ import concurrent.futures as futures
 
 CAPTURE_DIR="./Captures/"
 OUT_DIR = "./windowParsed/"
-DEVICE_LIST="./Captures/device prefix list.txt"
+DEVICE_LIST="./Captures/device_prefix_list.txt"
 PRETTY_PRINTER=pprint.PrettyPrinter(indent=4)
 SAVE_CSV=False
 
@@ -35,7 +35,7 @@ def get_devies(files):
     with open(DEVICE_LIST) as deviceFile:
         devicePrefixes = sorted(deviceFile.readlines())
         debug(devicePrefixes,COLORS.BLUE)
-        devicePrefixes = [devPref.rstrip() for devPref in devicePrefixes]
+        devicePrefixes = [devPref.rstrip() for devPref in devicePrefixes if devPref.startswith("#")==False]
 
     # devicePrefixes=sorted(list({"Awox","AmazonDot","AmazonEcho","AmazonShow","DLink","TPLink","Musaic","IView","IDevice","SmartThingsHub","Omna","Wemo"}))
     debug(devicePrefixes,COLORS.BLUE)
