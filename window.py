@@ -82,21 +82,28 @@ def build_windows(features, frameNums):
 	print("max count: %i, step size: %i" %(maxCount, stepSize))
 	featCount = len(features[0])
 	print("Features count: %s"%featCount)
-	for i in range(0, maxCount, stepSize): #we can change step to windowsize to do a non-inclusive window building (e.g. 1-5, 5-10, )
+	windowLen = int(maxCount/stepSize)
+
+	fullDict = [None]*windowLen
+	debug("Expected full size: %i"%windowLen, COLORS.GREEN)
+	for k,i in enumerate(range(0, maxCount, stepSize)): #we can change step to windowsize to do a non-inclusive window building (e.g. 1-5, 5-10, )
 		sDebug("Building window number %i"%i,COLORS.ORANGE)
 		# window full is every packet after this windows starting packet so "bad"/unrelevant packets can be sorted out.
 		frames = features[i:i+windowSize]
 		# winFrameNums = frameNums[i:i+windowSize]
 
 		frames = [{"frame[%s]-%s"%(n,key):value for key, value in frame.items()} for n, frame in enumerate(frames)]
-		window = {}
+		window = {"frame ID": k}
 		[window.update(frameDF) for frameDF in frames]
+		fullDict[k] = window
 
 		# print(window)
 		# print("=================================================")
-		winDF = pds.DataFrame([window])
+		# winDF = pds.DataFrame([window])
 		# frameIDArr.append(winFrameNums)
-		full = full.append(winDF, ignore_index=True)
+		# full = full.append(winDF, ignore_index=True)
+	full = pds.DataFrame(fullDict)
+	debug(len(full),COLORS.BLUE)
 	# full.to_csv("./Test.csv")
 	# print(frameIDArr)
 	# print(full)
@@ -298,20 +305,6 @@ def extract_features(captures):
 		frameNum = getFrameNumber()
 		frameNums.append(frameNum)
 
-		# ### frameDict["Frame Number"] = frameNum This was already commented out :)
-		# frameDict["Frame Length"] = getFrameLength()
-		# frameDict["SRC PORT"] = pktInfo["src_port"]
-		# # frameDict["DST PORT"] = pktInfo["dst_port"]
-		# frameDict["Time"] = getTimes()
-
-		# frameDict.update(getPackHeader())
-
-		# # frameDict["TCP Window Size"] = pktInfo["TCP_win_size"] if(pktInfo["proto_name"]=="TCP") else  np.NAN
-		# # frameDict["Payload Length"] = len(payload) if payload else np.NAN
-		# # frameDict["Entropy"] = Entropy(packet) if payload else np.NAN
-
-		# # print(packet)
-		# # print(frameDict)
 		packets.append(frameDict)
 		# print("------------------")
 
