@@ -24,7 +24,6 @@ class MachineLearningModel:
 		self.config=config
 		self.kFoldCV = kFoldCV
 		self.groupSplit = groupSplit
-		print("-->%s" % self.groupSplit)
 
 		#split the data into labels to ballance the data:
 		self.shuffle_split()
@@ -47,8 +46,8 @@ class MachineLearningModel:
 				xTE = test.values
 				yTR = train.index.values
 				yTE = test.index.values
-				print("yTR len %i -- true len %i -- sum %i"%(len(yTR), len(train[train.index==1]), yTR.sum()))
-				print("yTE len %i -- true len %i -- sum %i"%(len(yTE), len(test[test.index==1]), yTE.sum()))
+				#print("yTR len %i -- true len %i -- sum %i"%(len(yTR), len(train[train.index==1]), yTR.sum()))
+				#print("yTE len %i -- true len %i -- sum %i"%(len(yTE), len(test[test.index==1]), yTE.sum()))
 
 			else:
 				xTR, xTE, yTR, yTE = train_test_split(df.values, df.index.values,train_size=0.8)
@@ -67,8 +66,8 @@ class MachineLearningModel:
 			scaler.fit(xTR)
 
 			standardSplits.append([scaler.transform(xTR), scaler.transform(xTE), yTR, yTE])
-			print("** yTR len %i -- sum %i"% (len(yTR), yTR.sum()))
-			print("** yTE len %i -- sum %i"% (len(yTE), yTE.sum()))
+			#print("** yTR len %i -- sum %i"% (len(yTR), yTR.sum()))
+			#print("** yTE len %i -- sum %i"% (len(yTE), yTE.sum()))
 		self.standardSplits = standardSplits
 
 
@@ -85,7 +84,7 @@ class MachineLearningModel:
 			resDict["ACC"] = accuracy_score(yTE, predicted)
 			resDict["bACC"] = balanced_accuracy_score(yTE, predicted)
 			prec, rec, fscore, supp = precision_recall_fscore_support(yTE, predicted, average='weighted', zero_division=0)
-			
+
 			tn, fp, fn, tp = confusion_matrix(yTE, predicted).ravel()
 
 			rAUC = roc_auc_score(yTE, (predictedProb if predictedProb.shape[1]>2 else predictedProb[:,1]), multi_class="ovr")
