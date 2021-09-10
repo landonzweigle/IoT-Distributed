@@ -71,7 +71,7 @@ def get_devies(files,unseenLike="UNSEEN_"):
 		pref = starts_with_any(cleaned, devicePrefixes)
 
 		if(pref):
-			dPcap = devicePcap(CAPTURE_DIR, cleaned, unseen)
+			dPcap = devicePcap(CAPTURE_DIR, f, unseen)
 			devices[pref].append(dPcap)
 		else:
 			debug(f,COLORS.RED)
