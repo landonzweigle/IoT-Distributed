@@ -320,13 +320,16 @@ def outgoing_packet(packet):
 
 
 
-def from_many(files):
+def from_many(files,unseen=None):
 	dfOut = pds.DataFrame()
-	for fPcap in files:
+	for i,fPcap in enumerate(files):
+		isUnseen=unseen[i] if(unseen!=None and isinstance(unseen,list)) else False
+
 		pcap = pyshark.FileCapture(fPcap)
 		features, frameNums = extract_features(pcap)
 		del pcap
 		windowArray = build_windows(features, frameNums)
+		windowArray["Unseen"] = [int(isUnseen)] * len(windowArray)
 		dfOut = dfOut.append(windowArray)
 	return dfOut
 
