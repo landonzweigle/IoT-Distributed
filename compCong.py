@@ -12,10 +12,16 @@ SAVE_CSV=True
 
 class devicePcap:
 	location=""
+	name=""
 	unseen=""
-	def __init__(self,location, unseen):
+
+	path=""
+	def __init__(self, location, name, unseen):
 		self.location=location
-		self.unseen=unseen
+		self.name=name
+		self.unseen=unseenos.path.normpath
+
+		self.path=os.path.normpath(self.location+'/'+name)
 
 	def __str__(self):
 		return __repr__()
@@ -65,7 +71,7 @@ def get_devies(files,unseenLike="UNSEEN_"):
 		pref = starts_with_any(cleaned, devicePrefixes)
 
 		if(pref):
-			dPcap = devicePcap(cleaned, unseen)
+			dPcap = devicePcap(CAPTURE_DIR, cleaned, unseen)
 			devices[pref].append(dPcap)
 		else:
 			debug(f,COLORS.RED)
@@ -75,11 +81,11 @@ def get_devies(files,unseenLike="UNSEEN_"):
 
 
 
-def get_device_df(deviceName, deviceID, deviceFiles):
-	filesTrue = [os.path.normpath(CAPTURE_DIR + "/" + f) for f in deviceFiles]
-	# print(filesTrue)
-	# print("%i: %s: %s" % (i, deviceName, filesTrue))
-	resDF = window.from_many(filesTrue)
+def get_device_df(deviceName, deviceID, devicePcaps):
+	filesTrue = [f.path for f in devicePcaps]
+	unseen = [f.unseen for f in devicePcaps]
+
+	resDF = window.from_many(filesTrue, unseen)
 
 	resDF["Device"] = [deviceName] * len(resDF)
 	resDF.index = [deviceID] * len(resDF)
@@ -90,9 +96,9 @@ def conglomerate_data(deviceDict):
 	congDF = pds.DataFrame()
 
 	for i, dictItem in enumerate(deviceDict.items()):
-		deviceName, files = dictItem
+		deviceName, dPcaps = dictItem
 
-		dfIn = get_device_df(deviceName, i, files)
+		dfIn = get_device_df(deviceName, i, dPcaps)
 
 		congDF = congDF.append(dfIn)
 	return congDF
@@ -102,7 +108,7 @@ def conglomerate_data_fast(deviceDict):
 	dfArr = []
 	with futures.ProcessPoolExecutor(max_workers=15) as executer:
 
-		running = [executer.submit(get_device_df, name, i, files ) for i, (name, files) in enumerate(deviceDict.items())]
+		running = [executer.submit(get_device_df, name, i, dPcaps ) for i, (name, dPcaps) in enumerate(deviceDict.items())]
 
 		for res in futures.as_completed(running):
 			dfArr.append(res.result())
