@@ -8,7 +8,7 @@ CAPTURE_DIR="./Captures/"
 OUT_DIR = "./windowParsed/"
 DEVICE_LIST="./Captures/device_prefix_list.txt"
 PRETTY_PRINTER=pprint.PrettyPrinter(indent=4)
-SAVE_CSV=False
+SAVE_CSV=True
 
 def get_captures(capDir):
     toRet=[]
@@ -100,7 +100,7 @@ def main(capDir):
     if(SAVE_CSV):
         csvCong.to_csv(savePath)
     else:
-        debug("WARNING, %s FILE NOTE CREATED."%savePath, COLORS.RED)
+        debug("WARNING, %s FILE NOT CREATED."%savePath, COLORS.RED)
 
 
 if __name__ == "__main__":

@@ -54,7 +54,7 @@ def main(saveFile, cong=None):
         devID = congDF[congDF["Device"]==uniqueName].index.unique()[0]
         print("DeviceID: %s"%devID)
 
-        df = congDF.drop("Device",axis=1)
+        df = congDF.drop(["Device","frame ID"],axis=1)
         df.index = (df.index==devID).astype(int)
 
         dfMLP = MLPipe.MLP(df,kFoldCV=10)
