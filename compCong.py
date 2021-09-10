@@ -19,7 +19,7 @@ class devicePcap:
 	def __init__(self, location, name, unseen):
 		self.location=location
 		self.name=name
-		self.unseen=unseenos.path.normpath
+		self.unseen=unseen
 
 		self.path=os.path.normpath(self.location+'/'+name)
 
