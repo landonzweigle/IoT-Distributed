@@ -10,6 +10,19 @@ DEVICE_LIST="./Captures/device_prefix_list.txt"
 PRETTY_PRINTER=pprint.PrettyPrinter(indent=4)
 SAVE_CSV=True
 
+class devicePcap:
+	location=""
+	unseen=""
+	def __init__(self,location, unseen):
+		self.location=location
+		self.unseen=unseen
+
+	def __str__(self):
+		return __repr__()
+
+	def __repr__(self):
+		return "%s, unseen:%s"%(self.location,self.unseen)
+
 def get_captures(capDir):
 	toRet=[]
 	match=COLORS.GREEN
@@ -20,7 +33,7 @@ def get_captures(capDir):
 	for f in os.listdir(capDir):
 		fType=COLORS.WHITE
 
-		if((not f.startswith("IGN_")) and f.endswith(".pcap")):
+		if((not f.startswith(".IGN_")) and f.endswith(".pcap")):
 			toRet.append(f)
 			fType=match
 		else:
@@ -29,7 +42,7 @@ def get_captures(capDir):
 		debug(f,fType)
 	return toRet
 
-def get_devies(files):
+def get_devies(files,unseenLike="UNSEEN_"):
 	#devicePrefixes is a set (no duplicates) which contains the prefixes for each device.
 	devicePrefixes = []
 	with open(DEVICE_LIST) as deviceFile:
@@ -37,16 +50,23 @@ def get_devies(files):
 		debug(devicePrefixes,COLORS.BLUE)
 		devicePrefixes = [devPref.rstrip() for devPref in devicePrefixes if devPref.startswith("#")==False]
 
-	# devicePrefixes=sorted(list({"Awox","AmazonDot","AmazonEcho","AmazonShow","DLink","TPLink","Musaic","IView","IDevice","SmartThingsHub","Omna","Wemo"}))
 	debug(devicePrefixes,COLORS.BLUE)
 	#devices is a dict such that: key=*device_name*:value=*[files]*
 	devices = {deviceName:[] for deviceName in devicePrefixes}
 
 	for f in files:
-		pref = starts_with_any(f, devicePrefixes)
+		unseen=False
+		cleaned=f
+
+		if(cleaned.startswith(unseenLike)):
+			unseen=True
+			cleaned=f[len(unseenLike):]
+
+		pref = starts_with_any(cleaned, devicePrefixes)
 
 		if(pref):
-			devices[pref].append(f)
+			dPcap = devicePcap(cleaned, unseen)
+			devices[pref].append(dPcap)
 		else:
 			debug(f,COLORS.RED)
 			
