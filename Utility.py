@@ -102,3 +102,7 @@ def get_unique_filename(name, path='.'):
     debug("\nexp dir is %s" % newPath, COLORS.GREEN)
     # os.mkdir(newPath)
     return newPath
+
+
+def make_dir(path):
+	os.makedirs(path)
