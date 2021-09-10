@@ -9,6 +9,8 @@ from sklearn.metrics import (roc_auc_score,
 							precision_recall_fscore_support, 
 							confusion_matrix)
 
+from Utility import *
+
 #For the RNN:
 import tensorflow as tf
 from tensorflow import keras
@@ -26,10 +28,15 @@ class MachineLearningModel:
 		self.groupSplit = groupSplit
 
 		#split the data into labels to ballance the data:
+		debug("Shuffling the data...", COLORS.BLUE)
 		self.shuffle_split()
+
 		#scale (normalize) the data:
+		debug("Standardizing...",COLORS.BLUE)
 		self.standardize()
+
 		#Train the model:
+		debug("Training the model...",COLORS.GREEN)
 		self.train_model()
 
 	def shuffle_split(self):
