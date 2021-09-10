@@ -9,6 +9,12 @@ from sklearn.metrics import (roc_auc_score,
 							precision_recall_fscore_support, 
 							confusion_matrix)
 
+#For the RNN:
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.metrics import *
+
 #extend this class to implement your own ML algorithm (or specific fine tunning of something such as how you shuffle data). Simply extend this class and override (see MLP class below for example)
 class MachineLearningModel:
 	#congDF (for conglomerate dataframe) should be a pandas dataframe which contains the Y axis/data as the label, and everything else as the X axis/data.
@@ -18,7 +24,7 @@ class MachineLearningModel:
 		self.config=config
 		self.kFoldCV = kFoldCV
 		self.groupSplit = groupSplit
-		print(self.groupSplit)
+		print("-->%s" % self.groupSplit)
 
 		#split the data into labels to ballance the data:
 		self.shuffle_split()
@@ -27,42 +33,15 @@ class MachineLearningModel:
 		#Train the model:
 		self.train_model()
 
-
-	# def balance(self):
-	# 	#This is my super readable, super big brain undersampling code which we shouldn't use. (keeping just in case our data in unbalanced and gives us bad results) 
-	# 	# shuffle = self.congDF.sample(frac=1)
-	# 	# shuffled_split = [list(train_test_split(c, test_size=0.2)) for ign, c in shuffle.groupby([self.congDF.index])]
-	# 	# self.train = pds.DataFrame().append([splt[0] for splt in shuffled_split])
-	# 	# self.test = pds.DataFrame().append([splt[1] for splt in shuffled_split])
-
-	# 	self.balanced = self.congDF
-	
-
 	def shuffle_split(self):
 		def split(df):
 			if(self.groupSplit):
 				#shuffle the data:
-				print(":)")
 				shuffle = df.sample(frac=1)
 
 				shuffled_split = [list(train_test_split(c, test_size=0.2)) for ign, c in shuffle.groupby([shuffle.index])]
-				# print(shuffled_split[0][0])
-				# print("~~")
-				# print(shuffled_split[0][1])
-
-				# print("**")
-				# print(shuffled_split[1][0])
-				# print("~~")
-				# print(shuffled_split[1][1])
-
 				train = pds.DataFrame().append([splt[0] for splt in shuffled_split])
 				test = pds.DataFrame().append([splt[1] for splt in shuffled_split])
-				# print()
-				# print(train)
-				# print("---")
-				# print(test)
-
-
 
 				xTR = train.values
 				xTE = test.values
@@ -107,13 +86,7 @@ class MachineLearningModel:
 			resDict["bACC"] = balanced_accuracy_score(yTE, predicted)
 			prec, rec, fscore, supp = precision_recall_fscore_support(yTE, predicted, average='weighted', zero_division=0)
 			
-			#tn, fp, fn, tp = confusion_matrix(yTE, predicted).ravel()
-			CM = confusion_matrix(yTE, predicted)
-
-			tn = CM[0][0]
-			fn = CM[1][0]
-			tp = CM[1][1]
-			fp = CM[0][1]
+			tn, fp, fn, tp = confusion_matrix(yTE, predicted).ravel()
 
 			rAUC = roc_auc_score(yTE, (predictedProb if predictedProb.shape[1]>2 else predictedProb[:,1]), multi_class="ovr")
 
@@ -141,12 +114,42 @@ class MLP(MachineLearningModel):
 			clf.fit(xTR, yTR)
 			self.clfs.append(clf)
 
+class RNN(MachineLearningModel):
+	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"hiddenLayers":[10,20]}):
+		super().__init__(congDF, kFoldCV, groupSplit, config)
+		return
+		
 
 
+	def train_model(self):
+		self.clfs = []
+		for xTR, xTE, yTR, yTE in self.standardSplits:
+			model = keras.Sequential()
+			# Add an Embedding layer expecting input vocab of size 1000, and
+			# output embedding dimension of size 64.
+			
+			# model.add(layers.Embedding(input_length=self.congDF.shape[1],input_dim=int(np.amax(xTR)), output_dim=64))
+			# Add a LSTM layer with 128 internal units.
+			# model.add(layers.LSTM(128))
+			model.add(layers.SimpleRNN(64,input_shape=(10,4)))
 
+			# Add a Dense layer with 1 units.
+			model.add(layers.Dense(1))
+			#TN, FP, FN, TP
+			model.compile(optimizer='adam', loss='binary_crossentropy', metrics=["Accuracy", "BinaryAccuracy", "AUC", "Precision", "Recall", "TrueNegatives", "FalsePositives", "FalseNegatives", "TruePositives"])
+			print(model.summary())
 
+			model.fit(xTR, yTR)
+			self.clfs.append(model)
 
-
+	def score(self):
+		self.resArr = []
+		for i, clf in enumerate(self.clfs):
+			xTR, xTE, yTR, yTE = self.standardSplits[i]
+			loss, accuracy, binAcc, AUC, prec, rec, tn, fp, fn, tp = clf.evaluate(xTE, yTE)
+			self.resArr.append({"ACC": accuracy, "bACC": binAcc, "PRECISION":prec, "RECALL":rec, "rAUC":AUC, "True Negative":tn, "False Negative":fn, "False Positive":fp, "True Positive":tp})
+		self.results=pds.DataFrame(resArr)
+		return 0
 
 
 
@@ -157,7 +160,7 @@ GEN_DATA=True
 if __name__=="__main__":
 	df = pds.DataFrame()
 	if(GEN_DATA):
-		df = generate_TestData(nClasses=2, nRows=20, nColumns=10)
+		df = generate_TestData(nClasses=2, nRows=50, nColumns=1000)
 	else:
 		if(len(sys.argv)!=2):
 			raise ValueError("MLPipe expects one argument specifying the path of the dataset CSV.")
@@ -166,7 +169,7 @@ if __name__=="__main__":
 			print("Opening file %s" % toOpen)
 			df = pds.read_csv(toOpen,index_col=0)
 
-	MLP = MLP(df,kFoldCV=1)
-	results = MLP.score()
-	print(MLP.results)
-	print(MLP.results.mean())
+	RNN = RNN(df,kFoldCV=1)
+	results = RNN.score()
+	print(RNN.results)
+	print(RNN.results.mean())
