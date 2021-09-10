@@ -88,25 +88,17 @@ def build_windows(features, frameNums):
 	debug("Expected full size: %i"%windowLen, COLORS.GREEN)
 	for k,i in enumerate(range(0, maxCount, stepSize)): #we can change step to windowsize to do a non-inclusive window building (e.g. 1-5, 5-10, )
 		sDebug("Building window number %i"%i,COLORS.ORANGE)
-		# window full is every packet after this windows starting packet so "bad"/unrelevant packets can be sorted out.
 		frames = features[i:i+windowSize]
-		# winFrameNums = frameNums[i:i+windowSize]
 
 		frames = [{"frame[%s]-%s"%(n,key):value for key, value in frame.items()} for n, frame in enumerate(frames)]
 		window = {"frame ID": k}
 		[window.update(frameDF) for frameDF in frames]
 		fullDict[k] = window
 
-		# print(window)
-		# print("=================================================")
-		# winDF = pds.DataFrame([window])
-		# frameIDArr.append(winFrameNums)
-		# full = full.append(winDF, ignore_index=True)
+
 	full = pds.DataFrame(fullDict)
 	debug(len(full),COLORS.BLUE)
-	# full.to_csv("./Test.csv")
-	# print(frameIDArr)
-	# print(full)
+
 	return full
 
 
@@ -136,7 +128,7 @@ def build_windows(features, frameNums):
 #	TCP Window Size
 #	Payload Length
 #}
-def extract_features(captures):
+def extract_features(captures, fast=False):
 	def getTimes():
 		return round(float128(packet.sniff_timestamp) - firstTime,9)
 
@@ -288,7 +280,7 @@ def extract_features(captures):
 
 		return outDict
 
-	
+
 
 	#filter outgoing only/incoming etc.
 	captures = filter_packets(captures)
