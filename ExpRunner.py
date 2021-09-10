@@ -44,20 +44,30 @@ def main(saveFile, cong=None):
 
     saveFile = raise_filePath_DNE(saveFile)
 
-    congDF = cleanDF(pds.read_csv(cong, index_col=0))
+    congDF, unseenDF = cleanDF(pds.read_csv(cong, index_col=0))
+
+    debug(unseenDF,COLORS.ORANGE)
 
     resIndex = []
     resData = []
 
 
     for uniqueName in congDF["Device"].unique():
+        #get the numerical device ID
         devID = congDF[congDF["Device"]==uniqueName].index.unique()[0]
         print("DeviceID: %s"%devID)
 
         df = congDF.drop(["Device","frame ID"],axis=1)
         df.index = (df.index==devID).astype(int)
 
+
+        if(isinstance(unseenDF,pds.DataFrame)):
+            dfTest = unseenDF.drop(["Device","frame ID"],axis=1)
+            dfTest.index = (dfTest.index==devID).astype(int)
+
         dfMLP = MLPipe.MLP(df,kFoldCV=10)
+        
+        
         results = dfMLP.score()
         resIndex.append(uniqueName)
         resData.append(results.mean())
@@ -68,17 +78,28 @@ def main(saveFile, cong=None):
     resDF.to_csv(saveFile)
     return resDF
 
-def cleanDF(df):
+def cleanDF(df,removeSmall=False):
     #drop every column where there exists only na values: 
     df = df.dropna(axis=1, how='all')
     df = df.fillna(-1)
 
-    lenDF = pds.DataFrame([{"NAME":dfg["Device"].values[-1],"N":len(dfg)} for _,dfg in df.groupby("Device")])
-    print(lenDF)
-    removed= lenDF[lenDF.isin(lenDF[lenDF["N"]>0])==False].dropna()["NAME"].values
-    a = list([debug("Device %s does not have enough data."%dev,COLORS.RED) for dev in removed])
+    #Remove devices that have too few data:
+    if(removeSmall):
+        lenDF = pds.DataFrame([{"NAME":dfg["Device"].values[-1],"N":len(dfg)} for _,dfg in df.groupby("Device")])
+        print(lenDF)
+        removed= lenDF[lenDF.isin(lenDF[lenDF["N"]>0])==False].dropna()["NAME"].values
+        a = list([debug("Device %s does not have enough data."%dev,COLORS.RED) for dev in removed])
 
-    return df
+    #Make sure there are zeros and ones only. If not just drop the column
+    debug(len(df["Unseen"].unique()),COLORS.ORANGE)
+    if(len(df["Unseen"].unique())==2):
+        seen = df[df["Unseen"]==0].drop("Unseen",axis=1)
+        unseen = df[df["Unseen"]==1].drop("Unseen",axis=1)
+        return seen, unseen
+
+    df = df.drop("Unseen",axis=1)
+
+    return df, None
     
 
 if __name__=="__main__":
