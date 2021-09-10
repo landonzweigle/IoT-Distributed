@@ -1,5 +1,5 @@
 import os, sys
-import pandas as pds, numpy as np
+import pandas as pds, numpy as np, concurrent.futures as futures
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -8,6 +8,7 @@ from sklearn.metrics import (roc_auc_score,
 							balanced_accuracy_score,
 							precision_recall_fscore_support, 
 							confusion_matrix)
+
 
 from Utility import *
 
@@ -21,62 +22,30 @@ from tensorflow.keras.metrics import *
 class MachineLearningModel:
 	#congDF (for conglomerate dataframe) should be a pandas dataframe which contains the Y axis/data as the label, and everything else as the X axis/data.
 	#if using kFoldCV, kFoldCV must be an int representing the number of folds. otherwise, set to False or None.
-	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config=None):
-		self.congDF=congDF
-		self.config=config
-		self.kFoldCV = kFoldCV
+	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config=None, fast=True):
+		self.congDF = congDF
+		self.config = config
+		self.kFoldCV = kFoldCV if isinstance(kFoldCV,int) else 1
 		self.groupSplit = groupSplit
 
-		#split the data into labels to ballance the data:
-		debug("Shuffling the data...", COLORS.BLUE)
-		self.shuffle_split()
+		self.standardSplits = []
+		self.clfs = []
 
-		#scale (normalize) the data:
-		debug("Standardizing...",COLORS.BLUE)
-		self.standardize()
+		debug("Processing Data (Splitting and standardizing).",COLORS.BLUE)
+		for i in range(self.kFoldCV):
+			xTR, xTE, yTR, yTE = self.shuffle_split(self.congDF, self.groupSplit)
+			self.standardSplits.append(self.standardize(xTR, xTE, yTR, yTE))
 
-		#Train the model:
-		debug("Training the model...",COLORS.GREEN)
-		self.train_model()
+		debug("Training model... Fast Mode:%s"%fast,COLORS.GREEN)
+		if(fast):
+			with futures.ProcessPoolExecutor(max_workers=self.kFoldCV) as executer:
+				running = [executer.submit(self.train_model, xTR, xTE, yTR, yTE, self.config) for xTR, xTE, yTR, yTE in self.standardSplits]
 
-	def shuffle_split(self):
-		def split(df):
-			if(self.groupSplit):
-				#shuffle the data:
-				shuffle = df.sample(frac=1)
-
-				shuffled_split = [list(train_test_split(c, test_size=0.2)) for ign, c in shuffle.groupby([shuffle.index])]
-				train = pds.DataFrame().append([splt[0] for splt in shuffled_split])
-				test = pds.DataFrame().append([splt[1] for splt in shuffled_split])
-
-				xTR = train.values
-				xTE = test.values
-				yTR = train.index.values
-				yTE = test.index.values
-				#print("yTR len %i -- true len %i -- sum %i"%(len(yTR), len(train[train.index==1]), yTR.sum()))
-				#print("yTE len %i -- true len %i -- sum %i"%(len(yTE), len(test[test.index==1]), yTE.sum()))
-
-			else:
-				xTR, xTE, yTR, yTE = train_test_split(df.values, df.index.values,train_size=0.8)
-			return xTR, xTE, yTR, yTE
-			
-
-		if(self.kFoldCV):
-			self.splits = [split(self.congDF) for i in range(self.kFoldCV)]
+				for res in futures.as_completed(running):
+					self.clfs.append(res.result())
 		else:
-			self.splits = [train_test_split(self.congDF.values,self.congDF.index.values,train_size=0.8)]
-
-	def standardize(self):
-		standardSplits=[]
-		for xTR, xTE, yTR, yTE in self.splits:
-			scaler=StandardScaler()
-			scaler.fit(xTR)
-
-			standardSplits.append([scaler.transform(xTR), scaler.transform(xTE), yTR, yTE])
-			#print("** yTR len %i -- sum %i"% (len(yTR), yTR.sum()))
-			#print("** yTE len %i -- sum %i"% (len(yTE), yTE.sum()))
-		self.standardSplits = standardSplits
-
+			for i, (xTR, xTE, yTR, yTE) in enumerate(self.standardSplits):
+				self.clfs.append(self.train_model(xTR, xTE, yTR, yTE, self.config))
 
 	#Return a dict of each metric.
 	def score(self):
@@ -103,22 +72,47 @@ class MachineLearningModel:
 		self.results = pds.DataFrame(self.resArr)
 		return self.results
 
-	def train_model(self):
+	@classmethod
+	def shuffle_split(cls, df, groupSplit):
+		if(groupSplit):
+			#shuffle the data:
+			shuffle = df.sample(frac=1)
+
+			shuffled_split = [list(train_test_split(c, test_size=0.2)) for ign, c in shuffle.groupby([shuffle.index])]
+			train = pds.DataFrame().append([splt[0] for splt in shuffled_split])
+			test = pds.DataFrame().append([splt[1] for splt in shuffled_split])
+
+			xTR = train.values
+			xTE = test.values
+			yTR = train.index.values
+			yTE = test.index.values
+
+		else:
+			xTR, xTE, yTR, yTE = train_test_split(df.values, df.index.values,train_size=0.8)
+		return xTR, xTE, yTR, yTE
+			
+	@classmethod
+	def standardize(cls, xTR, xTE, yTR, yTE):
+		scaler=StandardScaler()
+		scaler.fit(xTR)
+
+		return scaler.transform(xTR), scaler.transform(xTE), yTR, yTE
+
+	@classmethod
+	def train_model(cls, xTR, xTE, yTR, yTE, config):
 		pass
 
 
 class MLP(MachineLearningModel):
-	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"hiddenLayers":[10,20]}):
-		super().__init__(congDF, kFoldCV, groupSplit, config)
+	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"hiddenLayers":[10,20]},fast=True):
+		super().__init__(congDF, kFoldCV, groupSplit, config, fast)
 		return
 
-	def train_model(self):
+	def train_model(cls, xTR, xTE, yTR, yTE, config):
 		#note: hidden layer is the total number of layers-2 (DOES NOT include input and output layers; I presume that implies that setup is automatic.)
-		self.clfs = []
-		for xTR, xTE, yTR, yTE in self.standardSplits:
-			clf = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=self.config["hiddenLayers"], learning_rate_init=0.01, max_iter=700)
-			clf.fit(xTR, yTR)
-			self.clfs.append(clf)
+		clf = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=config["hiddenLayers"], learning_rate_init=0.01, max_iter=700)
+		clf.fit(xTR, yTR)
+		return clf
 
 class RNN(MachineLearningModel):
 	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"hiddenLayers":[10,20]}):
