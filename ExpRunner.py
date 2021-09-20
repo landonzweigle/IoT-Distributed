@@ -48,8 +48,14 @@ def main(saveFile, cong=None):
 
     debug(unseenDF,COLORS.ORANGE)
 
+    winSize = len(set([a.split('-')[0] for a in congDF.columns])) - 2 #subtract 2 for the Device and frameID columns
+    numFeats = congDF.shape[1]//winSize
+
+    config = {MLPipe.RNN.numFeatsKey: numFeats}
+
     resIndex = []
     resData = []
+    unseenData = []
 
 
     for uniqueName in congDF["Device"].unique():
@@ -60,23 +66,32 @@ def main(saveFile, cong=None):
         df = congDF.drop(["Device","frame ID"],axis=1)
         df.index = (df.index==devID).astype(int)
 
-
-        if(isinstance(unseenDF,pds.DataFrame)):
-            dfTest = unseenDF.drop(["Device","frame ID"],axis=1)
-            dfTest.index = (dfTest.index==devID).astype(int)
-
-        dfMLP = MLPipe.MLP(df,kFoldCV=10)
-        
-        
-        results = dfMLP.score()
+        dfRNN = MLPipe.RNN(df,kFoldCV=10, config=config)
+        results = dfRNN.score()
         resIndex.append(uniqueName)
         resData.append(results.mean())
 
+        # if(isinstance(unseenDF,pds.DataFrame)):
+        #     debug("Testing unseen data.",COLORS.ORANGE)
+        #     dfTest = unseenDF.drop(["Device","frame ID"],axis=1)
+        #     dfTest.index = (dfTest.index==devID).astype(int)
+
+        #     resUnseen = dfMLP.score_unseen(dfTest)
+
+        #     unseenData.append(resUnseen.mean())
+            
+
     resDF = pds.DataFrame(data=resData,index=resIndex)
-    print(resDF)
+    resUnseenDF = pds.DataFrame(data=unseenData,index=resIndex)
+
+    debug(resDF,COLORS.BLUE)
+    debug(resUnseenDF,COLORS.ORANGE)
+
+    fullResDF = pds.concat({"Seen Data":resDF,"Unseen Data":resUnseenDF},axis=1)
     
-    resDF.to_csv(saveFile)
-    return resDF
+    #resDF.to_csv(saveFile)
+    fullResDF.to_csv(saveFile)
+    return fullResDF
 
 def cleanDF(df,removeSmall=False):
     #drop every column where there exists only na values: 

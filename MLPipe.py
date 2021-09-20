@@ -34,7 +34,8 @@ class MachineLearningModel:
 		debug("Processing Data (Splitting and standardizing).",COLORS.BLUE)
 		for i in range(self.kFoldCV):
 			xTR, xTE, yTR, yTE = self.shuffle_split(self.congDF, self.groupSplit)
-			self.standardSplits.append(self.standardize(xTR, xTE, yTR, yTE))
+			xTRst, xTEst = self.standardize(xTR, xTE)
+			self.standardSplits.append([xTRst, xTEst, yTR, yTE])
 
 		debug("Training model... Fast Mode:%s"%fast,COLORS.GREEN)
 		if(fast):
@@ -48,10 +49,10 @@ class MachineLearningModel:
 				self.clfs.append(self.train_model(xTR, xTE, yTR, yTE, self.config))
 
 	#Return a dict of each metric.
-	def score(self):
-		self.resArr = []
+	def score(self,unseen=None):
+		resArr = []
 		for i, clf in enumerate(self.clfs):
-			xTR, xTE, yTR, yTE = self.standardSplits[i]
+			IGN, xTE, IGN, yTE = self.standardSplits[i] if(unseen==None) else (None, unseen[0], None, unseen[1])
 
 			predicted = clf.predict(xTE)
 			predictedProb = clf.predict_proba(xTE)
@@ -61,16 +62,24 @@ class MachineLearningModel:
 			resDict["bACC"] = balanced_accuracy_score(yTE, predicted)
 			prec, rec, fscore, supp = precision_recall_fscore_support(yTE, predicted, average='weighted', zero_division=0)
 
-			tn, fp, fn, tp = confusion_matrix(yTE, predicted).ravel()
+			tn, fp, fn, tp = confusion_matrix(yTE, predicted,labels=[0,1]).ravel()
 
-			rAUC = roc_auc_score(yTE, (predictedProb if predictedProb.shape[1]>2 else predictedProb[:,1]), multi_class="ovr")
+
+			rAUC = (roc_auc_score(yTE, (predictedProb if predictedProb.shape[1]>2 else predictedProb[:,1]), multi_class="ovr")) if(len(np.unique(yTE))>=2) else np.NAN
 
 			resDict.update({"PRECISION":prec, "RECALL":rec, "FSCORE":fscore, "rAUC":rAUC, "True Negative":tn, "False Negative":fn, "False Positive":fp, "True Positive":tp})
 
-			self.resArr.append(resDict)
+			resArr.append(resDict)
 
-		self.results = pds.DataFrame(self.resArr)
-		return self.results
+		results = pds.DataFrame(resArr)
+		return results
+
+	def score_unseen(self,unseenDF):
+		xUN = unseenDF.values
+		yUN = unseenDF.index.values
+
+		xUN, IGN, IGN, IGN = self.standardize(xUN,None)
+		return self.score((xUN,yUN))
 
 	@classmethod
 	def shuffle_split(cls, df, groupSplit):
@@ -92,64 +101,87 @@ class MachineLearningModel:
 		return xTR, xTE, yTR, yTE
 			
 	@classmethod
-	def standardize(cls, xTR, xTE, yTR, yTE):
+	def standardize(cls, xTR, xTE):
 		scaler=StandardScaler()
 		scaler.fit(xTR)
 
-		return scaler.transform(xTR), scaler.transform(xTE), yTR, yTE
+		xTRs = scaler.transform(xTR)
+		xTEs = scaler.transform(xTE) if(isinstance(xTE,np.ndarray)) else None
+
+		return xTRs, xTEs
 
 	@classmethod
 	def train_model(cls, xTR, xTE, yTR, yTE, config):
 		pass
 
+#---------------------------------------#
+#------------------MLP------------------#
+#---------------------------------------#
 
 class MLP(MachineLearningModel):
 	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"hiddenLayers":[10,20]},fast=True):
 		super().__init__(congDF, kFoldCV, groupSplit, config, fast)
 		return
 
+	@classmethod
 	def train_model(cls, xTR, xTE, yTR, yTE, config):
 		#note: hidden layer is the total number of layers-2 (DOES NOT include input and output layers; I presume that implies that setup is automatic.)
 		clf = MLPClassifier(solver='sgd', alpha=1e-5, hidden_layer_sizes=config["hiddenLayers"], learning_rate_init=0.01, max_iter=700)
 		clf.fit(xTR, yTR)
 		return clf
 
+#---------------------------------------#
+#------------------RNN------------------#
+#---------------------------------------#
+
 class RNN(MachineLearningModel):
-	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"hiddenLayers":[10,20]}):
+	numFeatsKey="num_features"
+	winSizeKey ="win_size"
+
+	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"num_features":None}):
+		#While I dislike not having the super init first, It can't really be helped :/
+		if(not config.get(RNN.numFeatsKey, None)):
+			raise Exception("RNN Requires config value of %s to run."%RNN.numFeatsKey)
+		
+		if(RNN.winSizeKey not in config):
+			config[RNN.winSizeKey] = congDF.shape[1]//config[RNN.numFeatsKey]
+		
 		super().__init__(congDF, kFoldCV, groupSplit, config)
+
 		return
 		
+	@classmethod
+	def fix_shape(cls, xTR, xTE, config):
+		#We need to reshape xTR and xTE to be in the form [samples, time steps, features]
+		xTR = xTR.reshape(xTR.shape[0], config[cls.winSizeKey], config[cls.numFeatsKey])
+		xTE = xTE.reshape(xTE.shape[0], config[cls.winSizeKey], config[cls.numFeatsKey])
 
+		return xTR, xTE
 
-	def train_model(self):
-		self.clfs = []
-		for xTR, xTE, yTR, yTE in self.standardSplits:
-			model = keras.Sequential()
-			# Add an Embedding layer expecting input vocab of size 1000, and
-			# output embedding dimension of size 64.
-			
-			# model.add(layers.Embedding(input_length=self.congDF.shape[1],input_dim=int(np.amax(xTR)), output_dim=64))
-			# Add a LSTM layer with 128 internal units.
-			# model.add(layers.LSTM(128))
-			model.add(layers.SimpleRNN(64,input_shape=(10,4)))
+	@classmethod
+	def train_model(cls, xTR, xTE, yTR, yTE, config):
+		xTR, xTE = cls.fix_shape(xTR, xTE, config)
 
-			# Add a Dense layer with 1 units.
-			model.add(layers.Dense(1))
-			#TN, FP, FN, TP
-			model.compile(optimizer='adam', loss='binary_crossentropy', metrics=["Accuracy", "BinaryAccuracy", "AUC", "Precision", "Recall", "TrueNegatives", "FalsePositives", "FalseNegatives", "TruePositives"])
-			print(model.summary())
+		model = keras.Sequential()
+		# Add an Embedding layer expecting input vocab of size 1000, and
+		# output embedding dimension of size 64.
+		
+		# model.add(layers.Embedding(input_length=self.congDF.shape[1],input_dim=int(np.amax(xTR)), output_dim=64))
+		# Add a LSTM layer with 128 internal units.
+		# model.add(layers.LSTM(128))
+		model.add(layers.SimpleRNN(64,input_shape=(config[cls.winSizeKey], config[cls.numFeatsKey])))
 
-			model.fit(xTR, yTR)
-			self.clfs.append(model)
+		# Add a Dense layer with 1 units.
+		model.add(layers.Dense(1))
+		#TN, FP, FN, TP
+		model.compile(optimizer='adam', loss='binary_crossentropy', metrics=["Accuracy", "BinaryAccuracy", "AUC", "Precision", "Recall", "TrueNegatives", "FalsePositives", "FalseNegatives", "TruePositives"])
+		# print(model.summary())
+
+		model.fit(xTR, yTR)
+		return model
 
 	def score(self):
-		self.resArr = []
-		for i, clf in enumerate(self.clfs):
-			xTR, xTE, yTR, yTE = self.standardSplits[i]
-			loss, accuracy, binAcc, AUC, prec, rec, tn, fp, fn, tp = clf.evaluate(xTE, yTE)
-			self.resArr.append({"ACC": accuracy, "bACC": binAcc, "PRECISION":prec, "RECALL":rec, "rAUC":AUC, "True Negative":tn, "False Negative":fn, "False Positive":fp, "True Positive":tp})
-		self.results=pds.DataFrame(resArr)
-		return 0
+		return -1
 
 
 
