@@ -137,19 +137,20 @@ class MLP(MachineLearningModel):
 class RNN(MachineLearningModel):
 	numFeatsKey="num_features"
 	winSizeKey ="win_size"
-
+	METRICS=["Accuracy", "BinaryAccuracy", "AUC", "Precision", "Recall", "TrueNegatives", "FalsePositives", "FalseNegatives", "TruePositives"]
 	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"num_features":None}, fast=True):
 		#While I dislike not having the super init first, It can't really be helped :/
 		if(not config.get(RNN.numFeatsKey, None)):
 			raise Exception("RNN Requires config value of %s to run."%RNN.numFeatsKey)
-		
+
 		if(RNN.winSizeKey not in config):
 			config[RNN.winSizeKey] = congDF.shape[1]//config[RNN.numFeatsKey]
-		
+
 		super().__init__(congDF, kFoldCV, groupSplit, config, fast)
 
 		return
-		
+
+
 	@classmethod
 	def fix_shape(cls, xTR, xTE, config):
 		#We need to reshape xTR and xTE to be in the form [samples, time steps, features]
@@ -163,26 +164,32 @@ class RNN(MachineLearningModel):
 		xTR, xTE = cls.fix_shape(xTR, xTE, config)
 
 		model = keras.Sequential()
-		# Add an Embedding layer expecting input vocab of size 1000, and
-		# output embedding dimension of size 64.
-		
-		# model.add(layers.Embedding(input_length=self.congDF.shape[1],input_dim=int(np.amax(xTR)), output_dim=64))
-		# Add a LSTM layer with 128 internal units.
-		# model.add(layers.LSTM(128))
+
 		model.add(layers.SimpleRNN(64,input_shape=(config[cls.winSizeKey], config[cls.numFeatsKey])))
 
-		# Add a Dense layer with 1 units.
 		model.add(layers.Dense(1))
 		#TN, FP, FN, TP
-		model.compile(optimizer='adam', loss='binary_crossentropy', metrics=["Accuracy", "BinaryAccuracy", "AUC", "Precision", "Recall", "TrueNegatives", "FalsePositives", "FalseNegatives", "TruePositives"])
-		# print(model.summary())
+		model.compile(optimizer='adam', loss='binary_crossentropy', metrics=cls.METRICS)
 
 		model.fit(xTR, yTR)
 		return model
 
-	def score(self):
+	#Return a dict of each metric.
+	def score(self,unseen=None):
+		resArr = []
+		for i, clf in enumerate(self.clfs):
+			IGN, xTE, IGN, yTE = self.standardSplits[i] if(unseen==None) else (None, unseen[0], None, unseen[1])
 
-		return pds.DataFrame({"NONE":[-1]})
+			results = clf.evaluate(xTE, yTE)
+			print(results)
+			resDict = {name:results[mIndex] for mIndex, name in enumerate(self.METRICS)}
+
+			#resDict.update({"PRECISION":prec, "RECALL":rec, "FSCORE":fscore, "rAUC":rAUC, "True Negative":tn, "False Negative":fn, "False Positive":fp, "True Positive":tp})
+
+			resArr.append(resDict)
+
+		results = pds.DataFrame(resArr)
+		return results
 
 
 

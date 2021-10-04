@@ -66,7 +66,7 @@ def main(saveFile, cong=None):
         df = congDF.drop(["Device","frame ID"],axis=1)
         df.index = (df.index==devID).astype(int)
 
-        dfRNN = MLPipe.RNN(df,kFoldCV=10, config=config, fast=False)
+        dfRNN = MLPipe.RNN(df,kFoldCV=1, config=config, fast=False)
         results = dfRNN.score()
         resIndex.append(uniqueName)
         resData.append(results.mean())
