@@ -61,12 +61,12 @@ def main(saveFile, cong=None):
     for uniqueName in congDF["Device"].unique():
         #get the numerical device ID
         devID = congDF[congDF["Device"]==uniqueName].index.unique()[0]
-        print("DeviceID: %s"%devID)
+        debug("DeviceID: %s"%devID,COLORS.ORANGE)
 
         df = congDF.drop(["Device","frame ID"],axis=1)
         df.index = (df.index==devID).astype(int)
 
-        dfRNN = MLPipe.RNN(df,kFoldCV=10, config=config)
+        dfRNN = MLPipe.RNN(df,kFoldCV=10, config=config, fast=False)
         results = dfRNN.score()
         resIndex.append(uniqueName)
         resData.append(results.mean())
@@ -79,7 +79,7 @@ def main(saveFile, cong=None):
         #     resUnseen = dfMLP.score_unseen(dfTest)
 
         #     unseenData.append(resUnseen.mean())
-            
+        debug("-------------------------------",COLORS.ORANGE)
 
     resDF = pds.DataFrame(data=resData,index=resIndex)
     resUnseenDF = pds.DataFrame(data=unseenData,index=resIndex)
