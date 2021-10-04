@@ -138,7 +138,7 @@ class RNN(MachineLearningModel):
 	numFeatsKey="num_features"
 	winSizeKey ="win_size"
 
-	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"num_features":None}):
+	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"num_features":None}, fast=True):
 		#While I dislike not having the super init first, It can't really be helped :/
 		if(not config.get(RNN.numFeatsKey, None)):
 			raise Exception("RNN Requires config value of %s to run."%RNN.numFeatsKey)
@@ -146,7 +146,7 @@ class RNN(MachineLearningModel):
 		if(RNN.winSizeKey not in config):
 			config[RNN.winSizeKey] = congDF.shape[1]//config[RNN.numFeatsKey]
 		
-		super().__init__(congDF, kFoldCV, groupSplit, config)
+		super().__init__(congDF, kFoldCV, groupSplit, config, fast)
 
 		return
 		
@@ -181,7 +181,8 @@ class RNN(MachineLearningModel):
 		return model
 
 	def score(self):
-		return -1
+
+		return pds.DataFrame({"NONE":[-1]})
 
 
 
