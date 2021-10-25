@@ -1,5 +1,6 @@
 *.pcap
 *.csv
+*.csv#
 *.kate-swp
 
 windowParsed/
