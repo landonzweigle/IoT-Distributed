@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, time
 import pandas as pds, numpy as np, concurrent.futures as futures
 from sklearn.neural_network import MLPClassifier
 from sklearn.model_selection import train_test_split
@@ -17,6 +17,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.metrics import *
+from keras import backend as K
 
 #extend this class to implement your own ML algorithm (or specific fine tunning of something such as how you shuffle data). Simply extend this class and override (see MLP class below for example)
 class MachineLearningModel:
@@ -60,7 +61,7 @@ class MachineLearningModel:
 			resDict = {}
 			resDict["ACC"] = accuracy_score(yTE, predicted)
 			resDict["bACC"] = balanced_accuracy_score(yTE, predicted)
-			prec, rec, fscore, supp = precision_recall_fscore_support(yTE, predicted, average='weighted', zero_division=0)
+			prec, rec, fscore, supp = precision_recall_fscore_support(yTE, predicted, average='binary', zero_division=0)
 
 			tn, fp, fn, tp = confusion_matrix(yTE, predicted,labels=[0,1]).ravel()
 
@@ -99,7 +100,7 @@ class MachineLearningModel:
 		else:
 			xTR, xTE, yTR, yTE = train_test_split(df.values, df.index.values,train_size=0.8)
 		return xTR, xTE, yTR, yTE
-			
+
 	@classmethod
 	def standardize(cls, xTR, xTE):
 		scaler=StandardScaler()
@@ -138,6 +139,7 @@ class RNN(MachineLearningModel):
 	numFeatsKey="num_features"
 	winSizeKey ="win_size"
 	METRICS=["Accuracy", "BinaryAccuracy", "AUC", "Precision", "Recall", "TrueNegatives", "FalsePositives", "FalseNegatives", "TruePositives"]
+
 	def __init__(self, congDF, kFoldCV=False, groupSplit=True, config={"num_features":None}, fast=True):
 		#While I dislike not having the super init first, It can't really be helped :/
 		if(not config.get(RNN.numFeatsKey, None)):
@@ -146,28 +148,28 @@ class RNN(MachineLearningModel):
 		if(RNN.winSizeKey not in config):
 			config[RNN.winSizeKey] = congDF.shape[1]//config[RNN.numFeatsKey]
 
-		super().__init__(congDF, kFoldCV, groupSplit, config, fast)
 
+		super().__init__(congDF, kFoldCV, groupSplit, config, fast)
 		return
 
-
 	@classmethod
-	def fix_shape(cls, xTR, xTE, config):
+	def fix_shape(cls, arr, config):
 		#We need to reshape xTR and xTE to be in the form [samples, time steps, features]
-		xTR = xTR.reshape(xTR.shape[0], config[cls.winSizeKey], config[cls.numFeatsKey])
-		xTE = xTE.reshape(xTE.shape[0], config[cls.winSizeKey], config[cls.numFeatsKey])
+		arr = arr.reshape(arr.shape[0], config[cls.winSizeKey], config[cls.numFeatsKey])
+		#xTE = xTE.reshape(xTE.shape[0], config[cls.winSizeKey], config[cls.numFeatsKey])
 
-		return xTR, xTE
+		return arr
 
 	@classmethod
 	def train_model(cls, xTR, xTE, yTR, yTE, config):
-		xTR, xTE = cls.fix_shape(xTR, xTE, config)
+		xTR = cls.fix_shape(xTR, config)
 
 		model = keras.Sequential()
+		model.add(layers.SimpleRNN(64, input_shape=(config[cls.winSizeKey], config[cls.numFeatsKey])))
+		model.add(layers.Dense(1, activation="sigmoid"))
 
-		model.add(layers.SimpleRNN(64,input_shape=(config[cls.winSizeKey], config[cls.numFeatsKey])))
-
-		model.add(layers.Dense(1))
+		#tempMets=[name if method==None else method for name, method in cls.METRICS_IMP.items()]
+		#print(tempMets)
 		#TN, FP, FN, TP
 		model.compile(optimizer='adam', loss='binary_crossentropy', metrics=cls.METRICS)
 
@@ -180,13 +182,37 @@ class RNN(MachineLearningModel):
 		for i, clf in enumerate(self.clfs):
 			IGN, xTE, IGN, yTE = self.standardSplits[i] if(unseen==None) else (None, unseen[0], None, unseen[1])
 
-			results = clf.evaluate(xTE, yTE)
-			print(results)
-			resDict = {name:results[mIndex] for mIndex, name in enumerate(self.METRICS)}
+			xTE = self.fix_shape(xTE, self.config)
 
-			#resDict.update({"PRECISION":prec, "RECALL":rec, "FSCORE":fscore, "rAUC":rAUC, "True Negative":tn, "False Negative":fn, "False Positive":fp, "True Positive":tp})
+			predictedProb = clf.predict_proba(xTE)
+			predicted = np.where(predictedProb < 0.5, 0, 1)
+
+			#print("Predictions (prob) shape: ",predictedProb.shape[1])
+			#print("probs:\n",predictedProb)
+			#print("class:\n",predicted)
+
+			resDict = {}
+			resDict["ACC"] = accuracy_score(yTE, predicted)
+			resDict["bACC"] = balanced_accuracy_score(yTE, predicted)
+			prec, rec, fscore, supp = precision_recall_fscore_support(yTE, predicted, average='binary', zero_division=0)
+
+			tn, fp, fn, tp = confusion_matrix(yTE, predicted, labels=[0,1]).ravel()
+
+
+			#(predictedProb if predictedProb.shape[1]>2 else predictedProb[:,1])
+			rAUC = (roc_auc_score(yTE, predictedProb, multi_class="ovr")) if(len(np.unique(yTE))>=2) else np.NAN
+
+			resDict.update({"PRECISION":prec, "RECALL":rec, "FSCORE":fscore, "rAUC":rAUC, "True Negative":tn, "False Negative":fn, "False Positive":fp, "True Positive":tp})
 
 			resArr.append(resDict)
+
+			#results = clf.evaluate(xTE, yTE)
+			#print("RESULTS: %s"%results)
+			#resDict = {name:results[mIndex] for mIndex, name in enumerate(["LOSS"]+self.METRICS)}
+			#print("DICT: %s"%resDict)
+			#resDict.update({"PRECISION":prec, "RECALL":rec, "FSCORE":fscore, "rAUC":rAUC, "True Negative":tn, "False Negative":fn, "False Positive":fp, "True Positive":tp})
+
+			#resArr.append(resDict)
 
 		results = pds.DataFrame(resArr)
 		return results
