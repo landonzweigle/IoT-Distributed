@@ -22,8 +22,6 @@ def debug(msg="", color=None):
             end=""
     print("%s%s%s"%(color,msg,end))
 
-# def dict_to_stir()
-
 
 def camel_case_split(identifier):
     matches = finditer('.+?(?:(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])|$)', identifier)
@@ -37,7 +35,7 @@ def inLower(string, arr):
         if(lower==toMatch.lower()):
             return True
     return False
-    
+
 def starts_with_any(toMatch, startwithArr):
     toMatchLower = toMatch.lower()
     for start in startwithArr:
@@ -53,7 +51,7 @@ def starts_with_any(toMatch, startwithArr):
     debug()
     #this is implicit and doesn't need to be added
     return None
-    
+
 def raise_filePath_DNE(file):
     if(isinstance(file,str)==False and not file):
         raise Exception("Argument:'file' is not a valid string.")
